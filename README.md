@@ -1,17 +1,5 @@
 # Sc2LadderServer
-A ladder server for SC2 API.
-
-New proxy interface is now implemented, the DLL instructions are out of date.  I will update the instructions within a few days
-
---------
-
-This will load bots as defined in the LadderBots.json file
-
-The `./data/` directory is writable, you should create a subdirectory with your bot name if you want to write data files.
-
-Requires Blizzard API files (see below).
-
-------
+Fork of Cryptyc's ladder server for SC2 API. Used for the CMPUT 350 SC2 tournament at the University of Alberta.
 
 
 # Developer Install / Compile Instructions
@@ -110,11 +98,10 @@ Create a file called `LadderManager.json` It should be in json format, with entr
 ##### BotConfigFile.json
 Create a `BotConfigFile.json`  file that will describe the roster of bots and their required attributes.  It should also contain an array of maps to be used.  For each map you want the bots to play on, add its name into this array, **including** the `.SC2Map` file ending.
 
-## CommandCenter
-CommandCenter bots are supported. Just add the json config file in the command center directory with the .ccbot extension.   
-   
-## Debugging
-DebugBot (included in this repo) can be used for debugging if you don't want to wait around for real bots to fight it out.
+## Building your own bot
+In order to work with the ladder manager, your bot's `main()` should call `RunBot()` from LadderInterface.h. DebugBot (included in this repo) can be used as an example for how to do this. However, do not submit a copy of this entire repository as your final project. If you're unsure how to include the SC2 API headers and libraries, please take a look at these [instructions](https://github.com/davechurchill/commandcenter#developer-install--compile-instructions-windows).
+
+[SC2 API Reference and Tutorials](https://blizzard.github.io/s2client-api/)
 
 ## Ladder server architecture
 The ladder server establishes a facade in between the bots and the SC2 instances, as is illustrated below.
