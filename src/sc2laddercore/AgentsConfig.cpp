@@ -96,10 +96,12 @@ void AgentsConfig::LoadAgents(const std::string &BaseDirectory, const std::strin
             }
             if (val.HasMember("RootPath") && val["RootPath"].IsString())
             {
-                NewBot.RootPath = BaseDirectory;
-                if (NewBot.RootPath.back() != '/')
-                {
-                    NewBot.RootPath += '/';
+                if (!BaseDirectory.empty()) {
+                    NewBot.RootPath = BaseDirectory;
+                    if (NewBot.RootPath.back() != '/')
+                    {
+                        NewBot.RootPath += '/';
+                    }
                 }
                 NewBot.RootPath = NewBot.RootPath + val["RootPath"].GetString();
                 if (NewBot.RootPath.back() != '/')
