@@ -14,7 +14,7 @@ Fork of Cryptyc's ladder server for SC2 API. Used for the CMPUT 350 SC2 tourname
 
 ```bat
 :: Clone the project
-$ git clone --recursive https://github.com/Cryptyc/Sc2LadderServer.git
+$ git clone --recursive https://github.com/solinas/Sc2LadderServer.git
 $ cd Sc2LadderServer
 
 :: Create build directory.
@@ -31,7 +31,7 @@ $ start Sc2LadderServer.sln
 ### Linux
 ```bash
 # Get the project.
-$ git clone --recursive https://github.com/Cryptyc/Sc2LadderServer.git
+$ git clone --recursive https://github.com/solinas/Sc2LadderServer.git
 $ cd Sc2LadderServer
 
 # Create build directory.
@@ -48,7 +48,7 @@ $ make
 ### OS X
 ```bash
 # Get the project.
-$ git clone --recursive https://github.com/Cryptyc/Sc2LadderServer.git
+$ git clone --recursive https://github.com/solinas/Sc2LadderServer.git
 $ cd Sc2LadderServer
 
 # Apply compilation fixes for OS X.
