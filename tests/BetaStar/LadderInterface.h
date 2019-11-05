@@ -1,3 +1,5 @@
+#pragma once;
+
 static sc2::Difficulty GetDifficultyFromString(const std::string &InDifficulty)
 {
 	if (InDifficulty == "VeryEasy")
