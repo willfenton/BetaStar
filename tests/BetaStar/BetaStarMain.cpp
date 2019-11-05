@@ -41,7 +41,7 @@ private:
                 break;
             }
             case sc2::UNIT_TYPEID::TERRAN_SCV: {
-                const sc2::Unit* mineral_target = FindNearestMineralPatch(unit->pos);
+                const sc2::Unit* mineral_target = FindNearestNeutralUnit(unit->pos, sc2::UNIT_TYPEID::NEUTRAL_MINERALFIELD);
                 if (!mineral_target) {
                     break;
                 }
@@ -123,12 +123,16 @@ private:
         return TryBuildStructure(sc2::ABILITY_ID::BUILD_BARRACKS);
     }
 
-    const sc2::Unit* FindNearestMineralPatch(const sc2::Point2D& start) {
+    const sc2::Unit* FindNearestNeutralUnit(const sc2::Point2D& start, sc2::UNIT_TYPEID target_unit_type) {
+        std::cout << Observation()->GetUnits(sc2::Unit::Alliance::Neutral).size() << std::endl;
+
         sc2::Units units = Observation()->GetUnits(sc2::Unit::Alliance::Neutral);
+
         float distance = std::numeric_limits<float>::max();
         const sc2::Unit* target = nullptr;
+
         for (const auto& unit : units) {
-            if (unit->unit_type == sc2::UNIT_TYPEID::NEUTRAL_MINERALFIELD) {
+            if (unit->unit_type == target_unit_type) {
                 float d = sc2::DistanceSquared2D(unit->pos, start);
                 if (d < distance) {
                     distance = d;
