@@ -20,7 +20,7 @@ private:
     // Both buildings and units are considered units and are represented with a Unit object.
     virtual void OnUnitIdle(const sc2::Unit* unit) final;
 
-    size_t CountUnitType(sc2::UNIT_TYPEID unit_type);
+    const size_t CountUnitType(sc2::UNIT_TYPEID unit_type) const;
 
     bool TryBuildStructure(sc2::ABILITY_ID ability_type_for_structure, sc2::UNIT_TYPEID unit_type);
 
@@ -29,6 +29,8 @@ private:
     bool TryBuildBarracks();
 
     const sc2::Unit* FindNearestNeutralUnit(const sc2::Point2D& start, sc2::UNIT_TYPEID target_unit_type);
+
+    const sc2::Units FriendlyUnitsOfType(sc2::UNIT_TYPEID unit_type) const;
 
 };
 

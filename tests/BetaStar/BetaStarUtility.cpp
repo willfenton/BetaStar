@@ -1,7 +1,7 @@
 #include "BetaStar.h"
 
-size_t BetaStar::CountUnitType(sc2::UNIT_TYPEID unit_type) {
-    return Observation()->GetUnits(sc2::Unit::Alliance::Self, sc2::IsUnit(unit_type)).size();
+const size_t BetaStar::CountUnitType(sc2::UNIT_TYPEID unit_type) const {
+    return FriendlyUnitsOfType(unit_type).size();
 }
 
 bool BetaStar::TryBuildStructure(sc2::ABILITY_ID ability_type_for_structure, sc2::UNIT_TYPEID unit_type = sc2::UNIT_TYPEID::TERRAN_SCV)
@@ -77,4 +77,9 @@ const sc2::Unit* BetaStar::FindNearestNeutralUnit(const sc2::Point2D& start, sc2
     }
 
     return target;
+}
+
+const sc2::Units BetaStar::FriendlyUnitsOfType(sc2::UNIT_TYPEID unit_type) const
+{
+    return Observation()->GetUnits(sc2::Unit::Alliance::Self, sc2::IsUnit(unit_type));
 }
