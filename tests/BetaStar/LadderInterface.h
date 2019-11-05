@@ -125,7 +125,7 @@ static void ParseArguments(int argc, char *argv[], ConnectionOptions &connect_op
 	arg_parser.Get("OpponentId", connect_options.OpponentId);
 }
 
-static void RunBot(int argc, char *argv[], sc2::Agent *Agent,sc2::Race race)
+static void RunBot(int argc, char *argv[], sc2::Agent *Agent, sc2::Race race)
 {
 	ConnectionOptions Options;
 	ParseArguments(argc, argv, Options);
@@ -152,13 +152,14 @@ static void RunBot(int argc, char *argv[], sc2::Agent *Agent,sc2::Race race)
 	}
 
 	// Start the game.
-    std::cout << "Comp/Race/Diff: " << Options.ComputerOpponent << Options.ComputerRace << Options.ComputerDifficulty;
+    std::cout << "Comp/Race/Diff: " << Options.ComputerOpponent << Options.ComputerRace << Options.ComputerDifficulty << std::endl;
 
-	// Step forward the game simulation.
+	 //Step forward the game simulation.
 	//std::cout << "Connecting to port " << Options.GamePort << std::endl;
 	//coordinator.Connect(Options.GamePort);
 	//coordinator.SetupPorts(num_agents, Options.StartPort, false);
-	//// Step forward the game simulation.
+
+	// Step forward the game simulation.
 	//coordinator.JoinGame();
 	//coordinator.SetTimeoutMS(10000);
 	//std::cout << " Successfully joined game" << std::endl;
