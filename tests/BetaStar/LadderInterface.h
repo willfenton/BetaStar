@@ -1,74 +1,77 @@
 #pragma once;
 
-static sc2::Difficulty GetDifficultyFromString(const std::string &InDifficulty)
+using namespace sc2;
+
+
+static Difficulty GetDifficultyFromString(const std::string &InDifficulty)
 {
 	if (InDifficulty == "VeryEasy")
 	{
-		return sc2::Difficulty::VeryEasy;
+		return Difficulty::VeryEasy;
 	}
 	if (InDifficulty == "Easy")
 	{
-		return sc2::Difficulty::Easy;
+		return Difficulty::Easy;
 	}
 	if (InDifficulty == "Medium")
 	{
-		return sc2::Difficulty::Medium;
+		return Difficulty::Medium;
 	}
 	if (InDifficulty == "MediumHard")
 	{
-		return sc2::Difficulty::MediumHard;
+		return Difficulty::MediumHard;
 	}
 	if (InDifficulty == "Hard")
 	{
-		return sc2::Difficulty::Hard;
+		return Difficulty::Hard;
 	}
 	if (InDifficulty == "HardVeryHard")
 	{
-		return sc2::Difficulty::HardVeryHard;
+		return Difficulty::HardVeryHard;
 	}
 	if (InDifficulty == "VeryHard")
 	{
-		return sc2::Difficulty::VeryHard;
+		return Difficulty::VeryHard;
 	}
 	if (InDifficulty == "CheatVision")
 	{
-		return sc2::Difficulty::CheatVision;
+		return Difficulty::CheatVision;
 	}
 	if (InDifficulty == "CheatMoney")
 	{
-		return sc2::Difficulty::CheatMoney;
+		return Difficulty::CheatMoney;
 	}
 	if (InDifficulty == "CheatInsane")
 	{
-		return sc2::Difficulty::CheatInsane;
+		return Difficulty::CheatInsane;
 	}
 
-	return sc2::Difficulty::Easy;
+	return Difficulty::Easy;
 }
 
-static sc2::Race GetRaceFromString(const std::string & RaceIn)
+static Race GetRaceFromString(const std::string & RaceIn)
 {
 	std::string race(RaceIn);
 	std::transform(race.begin(), race.end(), race.begin(), ::tolower);
 
 	if (race == "terran")
 	{
-		return sc2::Race::Terran;
+		return Race::Terran;
 	}
 	else if (race == "protoss")
 	{
-		return sc2::Race::Protoss;
+		return Race::Protoss;
 	}
 	else if (race == "zerg")
 	{
-		return sc2::Race::Zerg;
+		return Race::Zerg;
 	}
 	else if (race == "random")
 	{
-		return sc2::Race::Random;
+		return Race::Random;
 	}
 
-	return sc2::Race::Random;
+	return Race::Random;
 }
 
 struct ConnectionOptions
@@ -77,14 +80,14 @@ struct ConnectionOptions
 	int32_t StartPort;
 	std::string ServerAddress;
 	bool ComputerOpponent;
-	sc2::Difficulty ComputerDifficulty;
-	sc2::Race ComputerRace;
+	Difficulty ComputerDifficulty;
+	Race ComputerRace;
 	std::string OpponentId;
 };
 
 static void ParseArguments(int argc, char *argv[], ConnectionOptions &connect_options)
 {
-	sc2::ArgParser arg_parser(argv[0]);
+	ArgParser arg_parser(argv[0]);
 	arg_parser.AddOptions({
 		{ "-g", "--GamePort", "Port of client to connect to", false },
 		{ "-o", "--StartPort", "Starting server port", false },
@@ -127,12 +130,12 @@ static void ParseArguments(int argc, char *argv[], ConnectionOptions &connect_op
 	arg_parser.Get("OpponentId", connect_options.OpponentId);
 }
 
-static void RunBot(int argc, char *argv[], sc2::Agent *Agent, sc2::Race race)
+static void RunBot(int argc, char *argv[], Agent *Agent, Race race)
 {
 	ConnectionOptions Options;
 	ParseArguments(argc, argv, Options);
 
-	sc2::Coordinator coordinator;
+	Coordinator coordinator;
     coordinator.LoadSettings(argc, argv);
 
 	// Add the custom bot, it will control the players.
