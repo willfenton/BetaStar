@@ -312,7 +312,7 @@ void BetaStar::MineIdleWorkers(const Unit* worker, AbilityID worker_gather_comma
 bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
     const ObservationInterface* observation = Observation();
 
-    if (observation->GetMinerals() < 450 || NeedWorkers()) {
+    if (building_command_centre || observation->GetMinerals() < 450 || NeedWorkers()) {
         return false;
     }
 
@@ -331,8 +331,26 @@ bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
             }
         }
     }
-    //only update staging location up till 3 bases.
-    return TryBuildStructure(build_ability, worker_type);
+
+    const Unit* unit_to_build = nullptr;
+    Units units = observation->GetUnits(Unit::Alliance::Self);
+    for (const auto& unit : units) {
+        for (const auto& order : unit->orders) {
+            if (order.ability_id == build_ability) {
+                return false;
+            }
+        }
+
+        if (unit->unit_type == worker_type) {
+            unit_to_build = unit;
+        }
+    }
+
+    building_command_centre = true;
+
+    Actions()->UnitCommand(unit_to_build, build_ability, closest_expansion);
+
+    return true;
 }
 
 UnitTypeID BetaStar::GetUnitBuilder(UnitTypeID unitToBuild)

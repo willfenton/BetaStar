@@ -26,6 +26,13 @@ void BetaStar::OnStep() {
 
     ManageWorkers(UNIT_TYPEID::TERRAN_SCV, ABILITY_ID::HARVEST_GATHER_SCV, UNIT_TYPEID::TERRAN_REFINERY);
 
+    // TODO
+    // BuildArmy();
+    // ManageArmy();
+    // Defend();
+    // Scout();
+    // BuildOrder();
+
     // TODO: stop this from running all the time, scout enemy
     if (CountUnitType(UNIT_TYPEID::TERRAN_MARINE) >= 30) {
         const GameInfo& game_info = Observation()->GetGameInfo();
@@ -34,9 +41,9 @@ void BetaStar::OnStep() {
         }
     }
 
-    //TryExpand(ABILITY_ID::BUILD_COMMANDCENTER, UNIT_TYPEID::TERRAN_SCV);
+    TryExpand(ABILITY_ID::BUILD_COMMANDCENTER, UNIT_TYPEID::TERRAN_SCV);
 
-    TryBuildBarracks();
+    //TryBuildBarracks();
 }
 
 // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
@@ -46,11 +53,7 @@ void BetaStar::OnUnitIdle(const Unit* unit) {
     switch (unit->unit_type.ToType()) {
 
         case UNIT_TYPEID::TERRAN_COMMANDCENTER: {
-            //if (Observation()->GetMinerals() >= 50 && std::max(0, Observation()->GetFoodCap() - Observation()->GetFoodUsed()) != 0 && NeedWorkers()) {
-            //    Actions()->UnitCommand(unit, ABILITY_ID::TRAIN_SCV);
-            //    break;
-            //}
-            //break;
+            break;
         }
 
         case UNIT_TYPEID::TERRAN_SCV: {
@@ -72,6 +75,16 @@ void BetaStar::OnUnitIdle(const Unit* unit) {
 
         default: {
             //std::cout << "Idle unit of type " << unit->unit_type.to_string() << std::endl;
+            break;
+        }
+    }
+}
+
+void BetaStar::OnBuildingConstructionComplete(const Unit* unit) {
+    switch (unit->unit_type.ToType()) {
+
+        case UNIT_TYPEID::TERRAN_COMMANDCENTER: {
+            building_command_centre = false;
             break;
         }
     }

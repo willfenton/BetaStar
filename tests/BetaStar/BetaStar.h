@@ -18,6 +18,9 @@ public:
     // called each time the coordinator steps the simulation forward
     virtual void OnStep() final;
 
+    // called each time the coordinator steps the simulation forward
+    virtual void BetaStar::OnBuildingConstructionComplete(const Unit* unit) final;
+
 private:
     // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
     // Both buildings and units are considered units and are represented with a Unit object.
@@ -77,4 +80,8 @@ private:
     size_t TrainUnitMultiple(const Units &buildings, UnitTypeID unitType);
 
     Point3D starting_pos;
+
+    int supply_left = 0;
+
+    bool building_command_centre = false;
 };
