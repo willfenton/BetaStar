@@ -53,5 +53,28 @@ private:
 
     void TrainWorkers();
 
+    // Returns the UnitTypeID of the unit that builds the specified unit
+    // Example: Terran Command Center for SCV and SCV for Terran Command Center
+    UnitTypeID GetUnitBuilder(UnitTypeID unitToBuild);
+
+    // Returns the AbilityID of the ability a builder will need to use to build the specified unit
+    AbilityID GetUnitBuildAbility(UnitTypeID unitToBuild);
+
+    // Attempts to train unit of unitType at random, valid building
+    // Returns true if successful, false otherwise
+    bool TrainUnit(UnitTypeID unitType);
+
+    // Attempts to train unit of unitType at specified building
+    // Returns true if successful, false otherwise
+    bool TrainUnit(const Unit* building, UnitTypeID unitType);
+
+    // Attempts to train one unit of unitType at all valid buildings
+    // Returns number of units trained this way
+    size_t TrainUnitMultiple(UnitTypeID unitType);
+
+    // Attempts to train one unit of unitType at specified buildings
+    // Returns number of units trained this way
+    size_t TrainUnitMultiple(const Units &buildings, UnitTypeID unitType);
+
     Point3D starting_pos;
 };

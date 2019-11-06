@@ -333,7 +333,103 @@ bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
     }
     //only update staging location up till 3 bases.
     return TryBuildStructure(build_ability, worker_type);
- }
+}
+
+UnitTypeID BetaStar::GetUnitBuilder(UnitTypeID unitToBuild)
+{
+    switch (unitToBuild.ToType())
+    {
+        case UNIT_TYPEID::TERRAN_BARRACKS:
+            return UNIT_TYPEID::TERRAN_SCV;
+        case UNIT_TYPEID::TERRAN_COMMANDCENTER:
+            return UNIT_TYPEID::TERRAN_SCV;
+        case UNIT_TYPEID::TERRAN_MARINE:
+            return UNIT_TYPEID::TERRAN_BARRACKS;
+        case UNIT_TYPEID::TERRAN_SCV:
+            return UNIT_TYPEID::TERRAN_COMMANDCENTER;
+        default:
+            // Program broke because unit you asked for wasn't added to the switch case yet. Add it.
+            std::cout << "ERROR: GetUnitBuilder could not find a builder for [" << unitToBuild.to_string() << "]. Add this to the switch case." << std::endl;
+            return UNIT_TYPEID::INVALID;
+    }
+}
+
+AbilityID BetaStar::GetUnitBuildAbility(UnitTypeID unitToBuild)
+{
+    switch (unitToBuild.ToType())
+    {
+        case UNIT_TYPEID::TERRAN_BARRACKS:
+            return ABILITY_ID::BUILD_BARRACKS;
+        case UNIT_TYPEID::TERRAN_COMMANDCENTER:
+            return ABILITY_ID::BUILD_COMMANDCENTER;
+        case UNIT_TYPEID::TERRAN_MARINE:
+            return ABILITY_ID::TRAIN_MARINE;
+        case UNIT_TYPEID::TERRAN_SCV:
+            return ABILITY_ID::TRAIN_SCV;
+        default:
+            // Program broke because unit you asked for wasn't added to the switch case yet. Add it.
+            std::cout << "ERROR: GetUnitBuildAbility could not find a build command for [" << unitToBuild.to_string() << "]. Add this to the switch case." << std::endl;
+            return ABILITY_ID::INVALID;
+    }
+}
+
+bool BetaStar::TrainUnit(UnitTypeID unitType)
+{
+    Units buildings = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(GetUnitBuilder(unitType)));
+
+    // we don't have any building that can build this unit
+    if (buildings.size() == 0)
+    {
+        return false;
+    }
+
+    // get random building from vector (slight bias to lower indeces) and build unit there
+    Actions()->UnitCommand(buildings[rand() % buildings.size()], GetUnitBuildAbility(unitType));
+
+    return true;
+}
+
+bool BetaStar::TrainUnit(const Unit *building, UnitTypeID unitType)
+{
+    // We've asked a building that can't build something to build it. Exit.
+    if (GetUnitBuilder(unitType) != building->unit_type)
+    {
+        return false;
+    }
+
+    // May need to queue some commands? 
+    Actions()->UnitCommand(building, GetUnitBuildAbility(unitType));
+
+    return true;
+}
+
+size_t BetaStar::TrainUnitMultiple(UnitTypeID unitType)
+{
+    Units buildings = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(GetUnitBuilder(unitType)));
+
+    // May need to queue some commands? 
+    Actions()->UnitCommand(buildings, GetUnitBuildAbility(unitType));
+
+    return buildings.size();
+}
+
+size_t BetaStar::TrainUnitMultiple(const Units &buildings, UnitTypeID unitType)
+{
+    for (const Unit* building : buildings)
+    {
+        // We've asked a building that can't build something to build it. Exit.
+        // Possible case of non-homogenous selection of buildings
+        if (GetUnitBuilder(unitType) != building->unit_type)
+        {
+            return 0;
+        }
+    }
+
+    // May need to queue some commands? 
+    Actions()->UnitCommand(buildings, GetUnitBuildAbility(unitType));
+
+    return buildings.size();
+}
 
 void BetaStar::TrainWorkers() {
     for (const auto& base : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_COMMANDCENTER)) {
