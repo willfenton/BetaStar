@@ -2,8 +2,10 @@
 
 #include "LadderInterface.h"
 
+using namespace sc2;
+
 int main(int argc, char* argv[])
 {
-    sc2::Agent* agent = new BetaStar();
-	RunBot(argc, argv, agent, sc2::Race::Terran);
+    Agent* agent = new BetaStar();
+	RunBot(argc, argv, agent, Race::Terran);
 }

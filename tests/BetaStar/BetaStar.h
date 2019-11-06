@@ -7,7 +7,9 @@
 #include "sc2utils/sc2_manage_process.h"
 #include "sc2utils/sc2_arg_parser.h"
 
-class BetaStar : public sc2::Agent {
+using namespace sc2;
+
+class BetaStar : public Agent {
 public:
     // this function runs at the start of the game
     virtual void OnGameStart() final;
@@ -18,19 +20,27 @@ public:
 private:
     // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
     // Both buildings and units are considered units and are represented with a Unit object.
-    virtual void OnUnitIdle(const sc2::Unit* unit) final;
+    virtual void OnUnitIdle(const Unit* unit) final;
 
-    const size_t CountUnitType(sc2::UNIT_TYPEID unit_type) const;
+    const size_t CountUnitType(UnitTypeID unit_type) const;
 
-    bool TryBuildStructure(sc2::ABILITY_ID ability_type_for_structure, sc2::UNIT_TYPEID unit_type);
+    bool TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type);
+
+    bool TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type, Tag location_tag);
 
     bool TryBuildSupplyDepot();
 
     bool TryBuildBarracks();
 
-    const sc2::Unit* FindNearestNeutralUnit(const sc2::Point2D& start, sc2::UNIT_TYPEID target_unit_type);
+    void BuildRefineries();
 
-    const sc2::Units FriendlyUnitsOfType(sc2::UNIT_TYPEID unit_type) const;
+    bool TryBuildRefinery(Point2D base_location);
+
+    bool NeedWorkers();
+
+    const Unit* FindNearestNeutralUnit(const Point2D& start, UnitTypeID target_unit_type);
+
+    const Units FriendlyUnitsOfType(UnitTypeID unit_type) const;
 
 };
 
