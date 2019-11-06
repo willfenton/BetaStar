@@ -1,8 +1,8 @@
 #include "BetaStar.h"
-
 #include "LadderInterface.h"
 
 using namespace sc2;
+
 
 int main(int argc, char* argv[])
 {

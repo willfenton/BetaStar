@@ -2,6 +2,7 @@
 
 using namespace sc2;
 
+
 static Difficulty GetDifficultyFromString(const std::string &InDifficulty)
 {
 	if (InDifficulty == "VeryEasy")

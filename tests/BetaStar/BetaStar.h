@@ -9,6 +9,7 @@
 
 using namespace sc2;
 
+
 class BetaStar : public Agent {
 public:
     // this function runs at the start of the game
@@ -42,5 +43,15 @@ private:
 
     const Units FriendlyUnitsOfType(UnitTypeID unit_type) const;
 
-};
+    const Unit* FindResourceToGather(Point2D unit_pos);
 
+    void ManageWorkers(UnitTypeID worker_type, AbilityID worker_gather_command, UnitTypeID vespene_building_type);
+
+    void MineIdleWorkers(const Unit* worker, AbilityID worker_gather_command, UnitTypeID vespene_building_type);
+
+    bool TryExpand(AbilityID build_ability, UnitTypeID worker_type);
+
+    void TrainWorkers();
+
+    Point3D starting_pos;
+};
