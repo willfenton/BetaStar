@@ -13,11 +13,11 @@ bool BetaStar::NeedWorkers() {
     int num_workers = 0;
     int ideal_workers = 0;
 
-    for (const auto& base : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_COMMANDCENTER)) {
+    for (const auto& base : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_NEXUS)) {
         num_workers += base->assigned_harvesters;
         ideal_workers += base->ideal_harvesters;
     }
-    for (const auto& vg : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_REFINERY)) {
+    for (const auto& vg : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_ASSIMILATOR)) {
         num_workers += vg->assigned_harvesters;
         ideal_workers += vg->ideal_harvesters;
     }
@@ -30,7 +30,7 @@ bool BetaStar::NeedWorkers() {
 // COULD USE SOME WORK
 // try to build a structure
 // returns true if successful, else false
-bool BetaStar::TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type = UNIT_TYPEID::TERRAN_SCV)
+bool BetaStar::TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type = UNIT_TYPEID::PROTOSS_PROBE)
 {
     const ObservationInterface* observation = Observation();
 
@@ -312,7 +312,7 @@ void BetaStar::MineIdleWorkers(const Unit* worker, AbilityID worker_gather_comma
 bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
     const ObservationInterface* observation = Observation();
 
-    if (building_command_centre || observation->GetMinerals() < 450 || NeedWorkers()) {
+    if (building_nexus || observation->GetMinerals() < 450 || NeedWorkers()) {
         return false;
     }
 
@@ -346,7 +346,7 @@ bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
         }
     }
 
-    building_command_centre = true;
+    building_nexus = true;
 
     Actions()->UnitCommand(unit_to_build, build_ability, closest_expansion);
 
@@ -355,8 +355,80 @@ bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
 
 UnitTypeID BetaStar::GetUnitBuilder(UnitTypeID unitToBuild)
 {
+    // TODO: Warp gates are not represented as a builder
     switch (unitToBuild.ToType())
     {
+        // Protoss Units
+        case UNIT_TYPEID::PROTOSS_ADEPT:
+            return UNIT_TYPEID::PROTOSS_GATEWAY;
+        case UNIT_TYPEID::PROTOSS_ASSIMILATOR:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_CARRIER:
+            return UNIT_TYPEID::PROTOSS_STARGATE;
+        case UNIT_TYPEID::PROTOSS_COLOSSUS:
+            return UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY;
+        case UNIT_TYPEID::PROTOSS_CYBERNETICSCORE:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_DARKSHRINE:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_DARKTEMPLAR:
+            return UNIT_TYPEID::PROTOSS_GATEWAY;
+        case UNIT_TYPEID::PROTOSS_DISRUPTOR:
+            return UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY;
+        case UNIT_TYPEID::PROTOSS_FLEETBEACON:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_FORGE:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_GATEWAY:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_HIGHTEMPLAR:
+            return UNIT_TYPEID::PROTOSS_GATEWAY;
+        case UNIT_TYPEID::PROTOSS_IMMORTAL:
+            return UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY;
+        case UNIT_TYPEID::PROTOSS_INTERCEPTOR:
+            return UNIT_TYPEID::PROTOSS_CARRIER;
+        case UNIT_TYPEID::PROTOSS_MOTHERSHIP:
+            return UNIT_TYPEID::PROTOSS_NEXUS;
+        case UNIT_TYPEID::PROTOSS_NEXUS:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_OBSERVER:
+            return UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY;
+        case UNIT_TYPEID::PROTOSS_ORACLE:
+            return UNIT_TYPEID::PROTOSS_STARGATE;
+        case UNIT_TYPEID::PROTOSS_PHOENIX:
+            return UNIT_TYPEID::PROTOSS_STARGATE;
+        case UNIT_TYPEID::PROTOSS_PHOTONCANNON:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_PROBE:
+            return UNIT_TYPEID::PROTOSS_NEXUS;
+        case UNIT_TYPEID::PROTOSS_PYLON:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_ROBOTICSBAY:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_SENTRY:
+            return UNIT_TYPEID::PROTOSS_GATEWAY;
+        case UNIT_TYPEID::PROTOSS_SHIELDBATTERY:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_STALKER:
+            return UNIT_TYPEID::PROTOSS_GATEWAY;
+        case UNIT_TYPEID::PROTOSS_STARGATE:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_TEMPEST:
+            return UNIT_TYPEID::PROTOSS_STARGATE;
+        case UNIT_TYPEID::PROTOSS_TEMPLARARCHIVE:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_VOIDRAY:
+            return UNIT_TYPEID::PROTOSS_STARGATE;
+        case UNIT_TYPEID::PROTOSS_WARPPRISM:
+            return UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY;
+        case UNIT_TYPEID::PROTOSS_ZEALOT:
+            return UNIT_TYPEID::PROTOSS_GATEWAY;
+
+        // Terran Units - no need to complete
         case UNIT_TYPEID::TERRAN_BARRACKS:
             return UNIT_TYPEID::TERRAN_SCV;
         case UNIT_TYPEID::TERRAN_COMMANDCENTER:
@@ -365,6 +437,8 @@ UnitTypeID BetaStar::GetUnitBuilder(UnitTypeID unitToBuild)
             return UNIT_TYPEID::TERRAN_BARRACKS;
         case UNIT_TYPEID::TERRAN_SCV:
             return UNIT_TYPEID::TERRAN_COMMANDCENTER;
+
+        // Should never be reached
         default:
             // Program broke because unit you asked for wasn't added to the switch case yet. Add it.
             std::cout << "ERROR: GetUnitBuilder could not find a builder for [" << unitToBuild.to_string() << "]. Add this to the switch case." << std::endl;
@@ -374,8 +448,80 @@ UnitTypeID BetaStar::GetUnitBuilder(UnitTypeID unitToBuild)
 
 AbilityID BetaStar::GetUnitBuildAbility(UnitTypeID unitToBuild)
 {
+    // TODO: Warping units is a different action. Not represented.
     switch (unitToBuild.ToType())
     {
+        // Protoss Build Actions
+        case UNIT_TYPEID::PROTOSS_ADEPT:
+            return ABILITY_ID::TRAIN_ADEPT;
+        case UNIT_TYPEID::PROTOSS_ASSIMILATOR:
+            return ABILITY_ID::BUILD_ASSIMILATOR;
+        case UNIT_TYPEID::PROTOSS_CARRIER:
+            return ABILITY_ID::TRAIN_CARRIER;
+        case UNIT_TYPEID::PROTOSS_COLOSSUS:
+            return ABILITY_ID::TRAIN_COLOSSUS;
+        case UNIT_TYPEID::PROTOSS_CYBERNETICSCORE:
+            return ABILITY_ID::BUILD_CYBERNETICSCORE;
+        case UNIT_TYPEID::PROTOSS_DARKSHRINE:
+            return ABILITY_ID::BUILD_DARKSHRINE;
+        case UNIT_TYPEID::PROTOSS_DARKTEMPLAR:
+            return ABILITY_ID::TRAIN_DARKTEMPLAR;
+        case UNIT_TYPEID::PROTOSS_DISRUPTOR:
+            return ABILITY_ID::TRAIN_DISRUPTOR;
+        case UNIT_TYPEID::PROTOSS_FLEETBEACON:
+            return ABILITY_ID::BUILD_FLEETBEACON;
+        case UNIT_TYPEID::PROTOSS_FORGE:
+            return ABILITY_ID::BUILD_FORGE;
+        case UNIT_TYPEID::PROTOSS_GATEWAY:
+            return ABILITY_ID::BUILD_GATEWAY;
+        case UNIT_TYPEID::PROTOSS_HIGHTEMPLAR:
+            return ABILITY_ID::TRAIN_HIGHTEMPLAR;
+        case UNIT_TYPEID::PROTOSS_IMMORTAL:
+            return ABILITY_ID::TRAIN_IMMORTAL;
+        case UNIT_TYPEID::PROTOSS_INTERCEPTOR:
+            return ABILITY_ID::BUILD_INTERCEPTORS;
+        case UNIT_TYPEID::PROTOSS_MOTHERSHIP:
+            return ABILITY_ID::TRAIN_MOTHERSHIP;
+        case UNIT_TYPEID::PROTOSS_NEXUS:
+            return ABILITY_ID::BUILD_NEXUS;
+        case UNIT_TYPEID::PROTOSS_OBSERVER:
+            return ABILITY_ID::TRAIN_OBSERVER;
+        case UNIT_TYPEID::PROTOSS_ORACLE:
+            return ABILITY_ID::TRAIN_ORACLE;
+        case UNIT_TYPEID::PROTOSS_PHOENIX:
+            return ABILITY_ID::TRAIN_PHOENIX;
+        case UNIT_TYPEID::PROTOSS_PHOTONCANNON:
+            return ABILITY_ID::BUILD_PHOTONCANNON;
+        case UNIT_TYPEID::PROTOSS_PROBE:
+            return ABILITY_ID::TRAIN_PROBE;
+        case UNIT_TYPEID::PROTOSS_PYLON:
+            return ABILITY_ID::BUILD_PYLON;
+        case UNIT_TYPEID::PROTOSS_ROBOTICSBAY:
+            return ABILITY_ID::BUILD_ROBOTICSBAY;
+        case UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY:
+            return ABILITY_ID::BUILD_ROBOTICSFACILITY;
+        case UNIT_TYPEID::PROTOSS_SENTRY:
+            return ABILITY_ID::TRAIN_SENTRY;
+        case UNIT_TYPEID::PROTOSS_SHIELDBATTERY:
+            return ABILITY_ID::BUILD_SHIELDBATTERY;
+        case UNIT_TYPEID::PROTOSS_STALKER:
+            return ABILITY_ID::TRAIN_STALKER;
+        case UNIT_TYPEID::PROTOSS_STARGATE:
+            return ABILITY_ID::BUILD_STARGATE;
+        case UNIT_TYPEID::PROTOSS_TEMPEST:
+            return ABILITY_ID::TRAIN_TEMPEST;
+        case UNIT_TYPEID::PROTOSS_TEMPLARARCHIVE:
+            return ABILITY_ID::BUILD_TEMPLARARCHIVE;
+        case UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL:
+            return ABILITY_ID::BUILD_TWILIGHTCOUNCIL;
+        case UNIT_TYPEID::PROTOSS_VOIDRAY:
+            return ABILITY_ID::TRAIN_VOIDRAY;
+        case UNIT_TYPEID::PROTOSS_WARPPRISM:
+            return ABILITY_ID::TRAIN_WARPPRISM;
+        case UNIT_TYPEID::PROTOSS_ZEALOT:
+            return ABILITY_ID::TRAIN_ZEALOT;
+
+        // Terran Build Actions - no need to complete
         case UNIT_TYPEID::TERRAN_BARRACKS:
             return ABILITY_ID::BUILD_BARRACKS;
         case UNIT_TYPEID::TERRAN_COMMANDCENTER:
@@ -384,6 +530,8 @@ AbilityID BetaStar::GetUnitBuildAbility(UnitTypeID unitToBuild)
             return ABILITY_ID::TRAIN_MARINE;
         case UNIT_TYPEID::TERRAN_SCV:
             return ABILITY_ID::TRAIN_SCV;
+
+        // Should never be reached
         default:
             // Program broke because unit you asked for wasn't added to the switch case yet. Add it.
             std::cout << "ERROR: GetUnitBuildAbility could not find a build command for [" << unitToBuild.to_string() << "]. Add this to the switch case." << std::endl;

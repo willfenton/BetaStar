@@ -83,5 +83,5 @@ private:
 
     int supply_left = 0;
 
-    bool building_command_centre = false;
+    bool building_nexus = false;
 };
