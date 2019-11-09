@@ -98,7 +98,7 @@ bool BetaStar::TryBuildSupplyDepot() {
     }
 
     // Try and build a depot. Find a random SCV and give it the order.
-    return TryBuildStructure(m_supply_building_ability, m_worker_typeid);
+    return TryBuildStructure(m_supply_building_abilityid, m_worker_typeid);
 }
 
 // build refineries at our bases if we haven't yet
@@ -126,7 +126,7 @@ bool BetaStar::TryBuildGas(Point2D base_location) {
     for (const auto& geyser : geysers) {
         float current_distance = DistanceSquared2D(base_location, geyser->pos);
         if (current_distance < minimum_distance) {
-            if (Query()->Placement(m_gas_building_ability, geyser->pos)) {
+            if (Query()->Placement(m_gas_building_abilityid, geyser->pos)) {
                 minimum_distance = current_distance;
                 closestGeyser = geyser->tag;
             }
@@ -137,7 +137,7 @@ bool BetaStar::TryBuildGas(Point2D base_location) {
     if (closestGeyser == 0) {
         return false;
     }
-    return TryBuildStructure(m_gas_building_ability, m_worker_typeid, closestGeyser);
+    return TryBuildStructure(m_gas_building_abilityid, m_worker_typeid, closestGeyser);
 }
 
 // returns the nearest neutral unit of type target_unit_type
@@ -298,14 +298,14 @@ void BetaStar::MineIdleWorkers(const Unit* worker, AbilityID worker_gather_comma
 bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
     const ObservationInterface* observation = Observation();
 
-    if (building_nexus || observation->GetMinerals() < 450 || NeedWorkers()) {
+    if (m_building_nexus || observation->GetMinerals() < 450 || NeedWorkers()) {
         return false;
     }
 
     float minimum_distance = std::numeric_limits<float>::max();
     Point3D closest_expansion;
     for (const auto& expansion : search::CalculateExpansionLocations(Observation(), Query())) {
-        float current_distance = Distance2D(starting_pos, expansion);
+        float current_distance = Distance2D(m_starting_pos, expansion);
         if (current_distance < .01f) {
             continue;
         }
@@ -332,7 +332,7 @@ bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
         }
     }
 
-    building_nexus = true;
+    m_building_nexus = true;
 
     Actions()->UnitCommand(unit_to_build, build_ability, closest_expansion);
 
@@ -586,7 +586,7 @@ size_t BetaStar::TrainUnitMultiple(const Units &buildings, UnitTypeID unitType)
 void BetaStar::TrainWorkers() {
     for (const auto& base : FriendlyUnitsOfType(m_base_typeid)) {
         if (Observation()->GetMinerals() >= 50 && base->orders.size() == 0 && std::max(0, Observation()->GetFoodCap() - Observation()->GetFoodUsed()) != 0 && NeedWorkers()) {
-            Actions()->UnitCommand(base, m_worker_train_ability);
+            Actions()->UnitCommand(base, m_worker_train_abilityid);
         }
     }
 }
