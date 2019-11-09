@@ -3,30 +3,42 @@
 using namespace sc2;
 
 
+// called each time the coordinator steps the simulation forward
+void BetaStar::OnStep() {
+
+    OnStepComputeStatistics();
+
+    OnStepTrainWorkers();
+
+    OnStepBuildPylons();
+
+    OnStepBuildGas();
+
+    OnStepExpand();
+
+    OnStepManageWorkers();
+
+    //TrainWorkers();
+
+    //TryBuildSupplyDepot();
+
+    //BuildGas();
+
+    ManageWorkers(UNIT_TYPEID::PROTOSS_PROBE, ABILITY_ID::HARVEST_GATHER_PROBE, UNIT_TYPEID::PROTOSS_ASSIMILATOR);
+
+    //TryExpand(ABILITY_ID::BUILD_NEXUS, UNIT_TYPEID::PROTOSS_PROBE);
+}
+
 void BetaStar::OnGameStart() {
     const ObservationInterface* observation = Observation();
     std::cout << "I am player number " << observation->GetPlayerID() << std::endl;
 
     // get position of first command center
     for (const auto& base : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_NEXUS)) {
-        starting_pos = base->pos;
+        m_starting_pos = base->pos;
     }
-}
 
-// called each time the coordinator steps the simulation forward
-void BetaStar::OnStep() {
-
-    const ObservationInterface* observation = Observation();
-
-    TrainWorkers();
-
-    TryBuildSupplyDepot();
-
-    BuildGas();
-
-    ManageWorkers(UNIT_TYPEID::PROTOSS_PROBE, ABILITY_ID::HARVEST_GATHER_PROBE, UNIT_TYPEID::PROTOSS_ASSIMILATOR);
-
-    TryExpand(ABILITY_ID::BUILD_NEXUS, UNIT_TYPEID::PROTOSS_PROBE);
+    expansion_locations = search::CalculateExpansionLocations(Observation(), Query());
 }
 
 // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
@@ -52,7 +64,7 @@ void BetaStar::OnBuildingConstructionComplete(const Unit* unit) {
     switch (unit->unit_type.ToType()) {
 
         case UNIT_TYPEID::PROTOSS_NEXUS: {
-            building_nexus = false;
+            m_building_nexus = false;
             break;
         }
     }
