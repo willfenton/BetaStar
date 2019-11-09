@@ -3,40 +3,42 @@
 using namespace sc2;
 
 
+// called each time the coordinator steps the simulation forward
+void BetaStar::OnStep() {
+
+    OnStepComputeStatistics();
+
+    OnStepTrainWorkers();
+
+    OnStepBuildPylons();
+
+    OnStepBuildGas();
+
+    OnStepExpand();
+
+    OnStepManageWorkers();
+
+    //TrainWorkers();
+
+    //TryBuildSupplyDepot();
+
+    //BuildGas();
+
+    //ManageWorkers(UNIT_TYPEID::PROTOSS_PROBE, ABILITY_ID::HARVEST_GATHER_PROBE, UNIT_TYPEID::PROTOSS_ASSIMILATOR);
+
+    //TryExpand(ABILITY_ID::BUILD_NEXUS, UNIT_TYPEID::PROTOSS_PROBE);
+}
+
 void BetaStar::OnGameStart() {
     const ObservationInterface* observation = Observation();
     std::cout << "I am player number " << observation->GetPlayerID() << std::endl;
 
     // get position of first command center
-    for (const auto& base : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_COMMANDCENTER)) {
-        starting_pos = base->pos;
-    }
-}
-
-// called each time the coordinator steps the simulation forward
-void BetaStar::OnStep() {
-
-    const ObservationInterface* observation = Observation();
-
-    TrainWorkers();
-
-    TryBuildSupplyDepot();
-
-    BuildRefineries();
-
-    ManageWorkers(UNIT_TYPEID::TERRAN_SCV, ABILITY_ID::HARVEST_GATHER_SCV, UNIT_TYPEID::TERRAN_REFINERY);
-
-    // TODO: stop this from running all the time, scout enemy
-    if (CountUnitType(UNIT_TYPEID::TERRAN_MARINE) >= 30) {
-        const GameInfo& game_info = Observation()->GetGameInfo();
-        for (const auto& marine : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_MARINE)) {
-            Actions()->UnitCommand(marine, ABILITY_ID::ATTACK_ATTACK, game_info.enemy_start_locations.front());
-        }
+    for (const auto& base : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_NEXUS)) {
+        m_starting_pos = base->pos;
     }
 
-    //TryExpand(ABILITY_ID::BUILD_COMMANDCENTER, UNIT_TYPEID::TERRAN_SCV);
-
-    TryBuildBarracks();
+    expansion_locations = search::CalculateExpansionLocations(Observation(), Query());
 }
 
 // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
@@ -45,33 +47,24 @@ void BetaStar::OnUnitIdle(const Unit* unit) {
 
     switch (unit->unit_type.ToType()) {
 
-        case UNIT_TYPEID::TERRAN_COMMANDCENTER: {
-            //if (Observation()->GetMinerals() >= 50 && std::max(0, Observation()->GetFoodCap() - Observation()->GetFoodUsed()) != 0 && NeedWorkers()) {
-            //    Actions()->UnitCommand(unit, ABILITY_ID::TRAIN_SCV);
-            //    break;
-            //}
-            //break;
-        }
-
-        case UNIT_TYPEID::TERRAN_SCV: {
+        case UNIT_TYPEID::PROTOSS_PROBE: {
             const Unit* target = FindResourceToGather(unit->pos);
             Actions()->UnitCommand(unit, ABILITY_ID::HARVEST_GATHER, target);
             break;
         }
 
-        case UNIT_TYPEID::TERRAN_BARRACKS: {
-            Actions()->UnitCommand(unit, ABILITY_ID::TRAIN_MARINE);
-            break;
-        }
-
-        case UNIT_TYPEID::TERRAN_MARINE: {
-            //const GameInfo& game_info = Observation()->GetGameInfo();
-            //Actions()->UnitCommand(unit, ABILITY_ID::ATTACK_ATTACK, game_info.enemy_start_locations.front());
-            break;
-        }
-
         default: {
             //std::cout << "Idle unit of type " << unit->unit_type.to_string() << std::endl;
+            break;
+        }
+    }
+}
+
+void BetaStar::OnBuildingConstructionComplete(const Unit* unit) {
+    switch (unit->unit_type.ToType()) {
+
+        case UNIT_TYPEID::PROTOSS_NEXUS: {
+            m_building_nexus = false;
             break;
         }
     }
