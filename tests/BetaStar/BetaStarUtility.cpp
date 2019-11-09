@@ -13,11 +13,11 @@ bool BetaStar::NeedWorkers() {
     int num_workers = 0;
     int ideal_workers = 0;
 
-    for (const auto& base : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_NEXUS)) {
+    for (const auto& base : FriendlyUnitsOfType(m_base_typeid)) {
         num_workers += base->assigned_harvesters;
         ideal_workers += base->ideal_harvesters;
     }
-    for (const auto& vg : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_ASSIMILATOR)) {
+    for (const auto& vg : FriendlyUnitsOfType(m_gas_building_typeid)) {
         num_workers += vg->assigned_harvesters;
         ideal_workers += vg->ideal_harvesters;
     }
@@ -30,7 +30,7 @@ bool BetaStar::NeedWorkers() {
 // COULD USE SOME WORK
 // try to build a structure
 // returns true if successful, else false
-bool BetaStar::TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type = UNIT_TYPEID::PROTOSS_PROBE)
+bool BetaStar::TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type)
 {
     const ObservationInterface* observation = Observation();
 
@@ -89,7 +89,6 @@ bool BetaStar::TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeI
         return true;
     }
     return false;
-
 }
 
 bool BetaStar::TryBuildSupplyDepot() {
@@ -99,37 +98,23 @@ bool BetaStar::TryBuildSupplyDepot() {
     }
 
     // Try and build a depot. Find a random SCV and give it the order.
-    return TryBuildStructure(ABILITY_ID::BUILD_SUPPLYDEPOT);
-}
-
-// build a barracks if we don't have one and we have at least one supply depot
-bool BetaStar::TryBuildBarracks() {
-
-    if (CountUnitType(UNIT_TYPEID::TERRAN_SUPPLYDEPOT) < 1) {
-        return false;
-    }
-
-    if (CountUnitType(UNIT_TYPEID::TERRAN_BARRACKS) > 2) {
-        return false;
-    }
-
-    return TryBuildStructure(ABILITY_ID::BUILD_BARRACKS);
+    return TryBuildStructure(m_supply_building_ability, m_worker_typeid);
 }
 
 // build refineries at our bases if we haven't yet
-void BetaStar::BuildRefineries() {
-    if (CountUnitType(UNIT_TYPEID::TERRAN_SUPPLYDEPOT) < 1) {
+void BetaStar::BuildGas() {
+    if (CountUnitType(m_supply_building_typeid) < 1) {
         return;
     }
 
-    for (const auto& cc : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_COMMANDCENTER)) {
-        TryBuildRefinery(cc->pos);
+    for (const auto& cc : FriendlyUnitsOfType(m_base_typeid)) {
+        TryBuildGas(cc->pos);
     }
 }
 
 // MOSTLY COPIED
 // Tries to build a geyser for a base
-bool BetaStar::TryBuildRefinery(Point2D base_location) {
+bool BetaStar::TryBuildGas(Point2D base_location) {
 
     const ObservationInterface* observation = Observation();
 
@@ -141,7 +126,7 @@ bool BetaStar::TryBuildRefinery(Point2D base_location) {
     for (const auto& geyser : geysers) {
         float current_distance = DistanceSquared2D(base_location, geyser->pos);
         if (current_distance < minimum_distance) {
-            if (Query()->Placement(ABILITY_ID::BUILD_REFINERY, geyser->pos)) {
+            if (Query()->Placement(m_gas_building_ability, geyser->pos)) {
                 minimum_distance = current_distance;
                 closestGeyser = geyser->tag;
             }
@@ -152,7 +137,7 @@ bool BetaStar::TryBuildRefinery(Point2D base_location) {
     if (closestGeyser == 0) {
         return false;
     }
-    return TryBuildStructure(ABILITY_ID::BUILD_REFINERY, UNIT_TYPEID::TERRAN_SCV, closestGeyser);
+    return TryBuildStructure(m_gas_building_ability, m_worker_typeid, closestGeyser);
 }
 
 // returns the nearest neutral unit of type target_unit_type
@@ -184,12 +169,12 @@ const Units BetaStar::FriendlyUnitsOfType(UnitTypeID unit_type) const
 
 // returns an uncapped mineral or vespene geyser, or the closest mineral if they are all capped
 const Unit* BetaStar::FindResourceToGather(Point2D unit_pos) {
-    for (const auto& cc : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_COMMANDCENTER)) {
+    for (const auto& cc : FriendlyUnitsOfType(m_base_typeid)) {
         if (cc->assigned_harvesters < cc->ideal_harvesters) {
             return FindNearestNeutralUnit(cc->pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
         }
     }
-    for (const auto& vg : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_REFINERY)) {
+    for (const auto& vg : FriendlyUnitsOfType(m_gas_building_typeid)) {
         if (vg->assigned_harvesters < vg->ideal_harvesters) {
             return vg;
         }
@@ -201,7 +186,7 @@ const Unit* BetaStar::FindResourceToGather(Point2D unit_pos) {
 // To ensure that we do not over or under saturate any base.
 void BetaStar::ManageWorkers(UnitTypeID worker_type, AbilityID worker_gather_command, UnitTypeID vespene_building_type) {
     const ObservationInterface* observation = Observation();
-    Units bases = observation->GetUnits(Unit::Alliance::Self, IsUnit(UNIT_TYPEID::TERRAN_COMMANDCENTER));
+    Units bases = observation->GetUnits(Unit::Alliance::Self, IsUnit(m_base_typeid));
     Units geysers = observation->GetUnits(Unit::Alliance::Self, IsUnit(vespene_building_type));
 
     if (bases.empty()) {
@@ -268,7 +253,7 @@ void BetaStar::ManageWorkers(UnitTypeID worker_type, AbilityID worker_gather_com
 // If we don't do this, probes may mine from other patches if they stray too far from the base after building.
 void BetaStar::MineIdleWorkers(const Unit* worker, AbilityID worker_gather_command, UnitTypeID vespene_building_type) {
     const ObservationInterface* observation = Observation();
-    Units bases = observation->GetUnits(Unit::Alliance::Self, IsUnit(UNIT_TYPEID::TERRAN_COMMANDCENTER));
+    Units bases = observation->GetUnits(Unit::Alliance::Self, IsUnit(m_base_typeid));
     Units geysers = observation->GetUnits(Unit::Alliance::Self, IsUnit(vespene_building_type));
 
     const Unit* valid_mineral_patch = nullptr;
@@ -277,12 +262,6 @@ void BetaStar::MineIdleWorkers(const Unit* worker, AbilityID worker_gather_comma
         return;
     }
 
-    for (const auto& geyser : geysers) {
-        if (geyser->assigned_harvesters < geyser->ideal_harvesters) {
-            Actions()->UnitCommand(worker, worker_gather_command, geyser);
-            return;
-        }
-    }
     //Search for a base that is missing workers.
     for (const auto& base : bases) {
         //If we have already mined out here skip the base.
@@ -292,6 +271,13 @@ void BetaStar::MineIdleWorkers(const Unit* worker, AbilityID worker_gather_comma
         if (base->assigned_harvesters < base->ideal_harvesters) {
             valid_mineral_patch = FindNearestNeutralUnit(base->pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
             Actions()->UnitCommand(worker, worker_gather_command, valid_mineral_patch);
+            return;
+        }
+    }
+
+    for (const auto& geyser : geysers) {
+        if (geyser->assigned_harvesters < geyser->ideal_harvesters) {
+            Actions()->UnitCommand(worker, worker_gather_command, geyser);
             return;
         }
     }
@@ -598,9 +584,9 @@ size_t BetaStar::TrainUnitMultiple(const Units &buildings, UnitTypeID unitType)
 }
 
 void BetaStar::TrainWorkers() {
-    for (const auto& base : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_COMMANDCENTER)) {
+    for (const auto& base : FriendlyUnitsOfType(m_base_typeid)) {
         if (Observation()->GetMinerals() >= 50 && base->orders.size() == 0 && std::max(0, Observation()->GetFoodCap() - Observation()->GetFoodUsed()) != 0 && NeedWorkers()) {
-            Actions()->UnitCommand(base, ABILITY_ID::TRAIN_SCV);
+            Actions()->UnitCommand(base, m_worker_train_ability);
         }
     }
 }

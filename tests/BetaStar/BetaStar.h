@@ -18,7 +18,11 @@ public:
     // called each time the coordinator steps the simulation forward
     virtual void OnStep() final;
 
-    // called each time the coordinator steps the simulation forward
+    // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
+    // Both buildings and units are considered units and are represented with a Unit object.
+    virtual void BetaStar::OnUnitIdle(const Unit* unit);
+
+    // called each a building is finished construction
     virtual void BetaStar::OnBuildingConstructionComplete(const Unit* unit) final;
 
 private:
@@ -34,11 +38,9 @@ private:
 
     bool TryBuildSupplyDepot();
 
-    bool TryBuildBarracks();
+    void BuildGas();
 
-    void BuildRefineries();
-
-    bool TryBuildRefinery(Point2D base_location);
+    bool TryBuildGas(Point2D base_location);
 
     bool NeedWorkers();
 
@@ -79,9 +81,27 @@ private:
     // Returns number of units trained this way
     size_t TrainUnitMultiple(const Units &buildings, UnitTypeID unitType);
 
+
+    /* MEMBER DATA */
+
+    // position of our starting base
     Point3D starting_pos;
 
+    // how much supply we have left, updated each step
     int supply_left = 0;
 
+    // whether we are currently building a nexus (don't consider expanding if true)
     bool building_nexus = false;
+
+    // common unit ids
+    const UnitTypeID m_base_typeid =             UNIT_TYPEID::PROTOSS_NEXUS;
+    const UnitTypeID m_worker_typeid =           UNIT_TYPEID::PROTOSS_PROBE;
+    const UnitTypeID m_supply_building_typeid =  UNIT_TYPEID::PROTOSS_PYLON;
+    const UnitTypeID m_gas_building_typeid =     UNIT_TYPEID::PROTOSS_ASSIMILATOR;
+
+    // common ability ids
+    const AbilityID m_worker_train_ability =     ABILITY_ID::TRAIN_PROBE;
+    const AbilityID m_worker_gather_ability =    ABILITY_ID::HARVEST_GATHER_PROBE;
+    const AbilityID m_supply_building_ability =  ABILITY_ID::BUILD_PYLON;
+    const AbilityID m_gas_building_ability =     ABILITY_ID::BUILD_ASSIMILATOR;
 };

@@ -22,28 +22,11 @@ void BetaStar::OnStep() {
 
     TryBuildSupplyDepot();
 
-    BuildRefineries();
+    BuildGas();
 
     ManageWorkers(UNIT_TYPEID::PROTOSS_PROBE, ABILITY_ID::HARVEST_GATHER_PROBE, UNIT_TYPEID::PROTOSS_ASSIMILATOR);
 
-    // TODO
-    // BuildArmy();
-    // ManageArmy();
-    // Defend();
-    // Scout();
-    // BuildOrder();
-
-    // TODO: stop this from running all the time, scout enemy
-    /*if (CountUnitType(UNIT_TYPEID::TERRAN_MARINE) >= 30) {
-        const GameInfo& game_info = Observation()->GetGameInfo();
-        for (const auto& marine : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_MARINE)) {
-            Actions()->UnitCommand(marine, ABILITY_ID::ATTACK_ATTACK, game_info.enemy_start_locations.front());
-        }
-    }*/
-
     TryExpand(ABILITY_ID::BUILD_NEXUS, UNIT_TYPEID::PROTOSS_PROBE);
-
-    //TryBuildBarracks();
 }
 
 // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
