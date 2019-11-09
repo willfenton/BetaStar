@@ -45,6 +45,7 @@ void BetaStar::OnStepTrainWorkers()
     for (const auto& base : bases) {
         // base still under construction
         if (base->build_progress != 1) {
+            sum_ideal_harvesters += 16;  // train workers for the base under construction
             continue;
         }
         sum_assigned_harvesters += base->assigned_harvesters;
@@ -62,6 +63,7 @@ void BetaStar::OnStepTrainWorkers()
     for (const auto& gas : gases) {
         // gas still under construction
         if (gas->build_progress != 1) {
+            sum_ideal_harvesters += 3;  // train 3 workers so that the gas can be worked once it's done
             continue;
         }
         sum_assigned_harvesters += gas->assigned_harvesters;
@@ -105,7 +107,7 @@ void BetaStar::OnStepBuildPylons()
     const ObservationInterface* observation = Observation();
 
     // build a pylon if we have less than supply_threshold supply left
-    const int supply_threshold = 4;
+    const int supply_threshold = 5;
 
     int num_minerals = observation->GetMinerals();
     int supply_left = (observation->GetFoodCap() - observation->GetFoodUsed());
@@ -177,8 +179,16 @@ void BetaStar::OnStepBuildGas()
     Units bases = FriendlyUnitsOfType(m_base_typeid);
     Units gases = FriendlyUnitsOfType(m_gas_building_typeid);
 
+    int num_complete_bases = 0;
+
+    for (const auto& base : bases) {
+        if (base->build_progress == 1) {
+            ++num_complete_bases;
+        }
+    }
+
     // check whether we have any gas open
-    if (gases.size() >= (2 * bases.size())) {
+    if (gases.size() >= (2 * num_complete_bases)) {
         return;
     }
 
@@ -260,6 +270,8 @@ void BetaStar::OnStepBuildGas()
     Actions()->UnitCommand(closest_worker, m_gas_building_abilityid, closest_geyser);
 }
 
+// logic for building new bases
+// TODO: check for units blocking the expansion
 void BetaStar::OnStepExpand()
 {
     const ObservationInterface* observation = Observation();
@@ -273,6 +285,12 @@ void BetaStar::OnStepExpand()
 
     Units bases = FriendlyUnitsOfType(m_base_typeid);
 
+    // check whether we have enough bases
+    if (bases.size() >= m_max_bases) {
+        return;
+    }
+
+    // check if any of our bases still need workers, if so then return
     for (const auto& base : bases) {
         if (base->build_progress != 1) {
             return;
@@ -284,10 +302,12 @@ void BetaStar::OnStepExpand()
 
     Units gases = FriendlyUnitsOfType(m_gas_building_typeid);
 
+    // check whether we still need to build gases
     if (gases.size() < (2 * bases.size())) {
         return;
     }
 
+    // check if any of our gases still need workers, if so then return
     for (const auto& gas : gases) {
         if (gas->build_progress != 1) {
             continue;
@@ -303,6 +323,7 @@ void BetaStar::OnStepExpand()
         return;
     }
 
+    // check whether a worker is already on its way to build a base
     for (const auto& worker : workers) {
         for (const auto& order : worker->orders) {
             if (order.ability_id == m_base_building_abilityid) {
@@ -311,6 +332,7 @@ void BetaStar::OnStepExpand()
         }
     }
 
+    // find the closest expansion location
     float minimum_distance = std::numeric_limits<float>::max();
     Point3D closest_expansion;
     for (const auto& expansion : expansion_locations) {
@@ -337,10 +359,131 @@ void BetaStar::OnStepExpand()
         }
     }
 
+    // order worker to build the base
     Actions()->UnitCommand(closest_worker, m_base_building_abilityid, closest_expansion);
 }
 
+// Struct used in OnStepManageWorkers()
+struct UnevenResource
+{
+    int worker_diff;
+    const Unit* unit;
+
+    UnevenResource(const Unit* unit)
+        : unit(unit)
+    {
+        worker_diff = abs(unit->ideal_harvesters - unit->assigned_harvesters);
+    }
+};
+
+// Move workers from oversaturated resources to undersaturated resources
+// Also gives orders to idle workers
+// BUG: doesn't seem to catch workers who built assimilators, they wait around until it's done and then start working there
+// This could probably be set to run every couple steps instead of every step
 void BetaStar::OnStepManageWorkers()
 {
+    const ObservationInterface* observation = Observation();
 
+    Units bases = FriendlyUnitsOfType(m_base_typeid);
+    Units gases = FriendlyUnitsOfType(m_gas_building_typeid);
+
+    if (bases.empty()) {
+        return;
+    }
+
+    std::vector<UnevenResource> oversaturated;
+    std::vector<UnevenResource> undersaturated;
+
+    // add over / undersaturated bases to the respective vectors
+    for (const auto& base : bases) {
+        if (base->build_progress != 1) {
+            continue;
+        }
+        int worker_diff = (base->ideal_harvesters - base->assigned_harvesters);
+        if (worker_diff == 0) {
+            continue;
+        }
+        if (worker_diff > 0) {
+            undersaturated.push_back(UnevenResource(base));
+            continue;
+        }
+        if (worker_diff < 0) {
+            oversaturated.push_back(UnevenResource(base));
+            continue;
+        }
+    }
+
+    // add over / undersaturated gases to the respective vectors
+    for (const auto& gas : gases) {
+        if (gas->build_progress != 1) {
+            continue;
+        }
+        int worker_diff = (gas->ideal_harvesters - gas->assigned_harvesters);
+        if (worker_diff == 0) {
+            continue;
+        }
+        if (worker_diff > 0) {
+            undersaturated.push_back(UnevenResource(gas));
+            continue;
+        }
+        if (worker_diff < 0) {
+            oversaturated.push_back(UnevenResource(gas));
+            continue;
+        }
+    }
+
+    Units workers = FriendlyUnitsOfType(m_worker_typeid);
+    Units idle_workers;
+
+    // iterate through workers, adding idle workers and workers on oversaturated resources to idle_workers
+    for (const auto& worker : workers) {
+        // idle worker
+        if (worker->orders.size() == 0) {
+            idle_workers.push_back(worker);
+            continue;
+        }
+        // check for working oversaturated resource
+        for (const auto& order : worker->orders) {
+            for (auto& uneven_resource : oversaturated) {
+                // already took workers off this resource
+                if (uneven_resource.worker_diff == 0) {
+                    continue;
+                }
+                // take worker off the oversaturated resource, update the struct
+                if (order.target_unit_tag == uneven_resource.unit->tag) {
+                    idle_workers.push_back(worker);
+                    --uneven_resource.worker_diff;
+                    continue;
+                }
+            }
+        }
+    }
+
+    if (idle_workers.size() == 0) {
+        return;
+    }
+
+    // iterate throuh undersatured resources, assigning workers from idle_workers to work them
+    for (auto& uneven_resource : undersaturated) {
+        while (idle_workers.size() > 0 && uneven_resource.worker_diff > 0) {
+            // remove worker from idle_workers
+            const Unit* worker = idle_workers.back();
+            idle_workers.pop_back();
+
+            // update struct
+            --uneven_resource.worker_diff;
+
+            // set worker to mine minerals from undersaturated base
+            if (uneven_resource.unit->unit_type == m_base_typeid) {
+                const Unit* mineral = FindNearestNeutralUnit(uneven_resource.unit->pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
+                Actions()->UnitCommand(worker, m_worker_gather_abilityid, mineral);
+            }
+            // set worker to mine gas from undersaturated gas
+            if (uneven_resource.unit->unit_type == m_gas_building_typeid) {
+                Actions()->UnitCommand(worker, m_worker_gather_abilityid, uneven_resource.unit);
+            }
+        }
+    }
+
+    // maybe check here if there are still idle workers, reassign them?
 }
