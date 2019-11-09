@@ -106,6 +106,9 @@ private:
     // how much supply we have left, updated each step
     int m_supply_left = 0;
 
+    // how many bases to build (max)
+    const int m_max_bases = 3;
+
     // whether we are currently building a nexus (don't consider expanding if true)
     bool m_building_nexus = false;
 
@@ -121,7 +124,7 @@ private:
     // common ability ids
     const AbilityID m_base_building_abilityid =    ABILITY_ID::BUILD_NEXUS;
     const AbilityID m_worker_train_abilityid =     ABILITY_ID::TRAIN_PROBE;
-    const AbilityID m_worker_gather_abilityid =    ABILITY_ID::HARVEST_GATHER_PROBE;
+    const AbilityID m_worker_gather_abilityid =    ABILITY_ID::HARVEST_GATHER;
     const AbilityID m_supply_building_abilityid =  ABILITY_ID::BUILD_PYLON;
     const AbilityID m_gas_building_abilityid =     ABILITY_ID::BUILD_ASSIMILATOR;
 
