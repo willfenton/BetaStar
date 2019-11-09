@@ -8,7 +8,7 @@ void BetaStar::OnGameStart() {
     std::cout << "I am player number " << observation->GetPlayerID() << std::endl;
 
     // get position of first command center
-    for (const auto& base : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_COMMANDCENTER)) {
+    for (const auto& base : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_NEXUS)) {
         starting_pos = base->pos;
     }
 }
@@ -22,28 +22,11 @@ void BetaStar::OnStep() {
 
     TryBuildSupplyDepot();
 
-    BuildRefineries();
+    BuildGas();
 
-    ManageWorkers(UNIT_TYPEID::TERRAN_SCV, ABILITY_ID::HARVEST_GATHER_SCV, UNIT_TYPEID::TERRAN_REFINERY);
+    ManageWorkers(UNIT_TYPEID::PROTOSS_PROBE, ABILITY_ID::HARVEST_GATHER_PROBE, UNIT_TYPEID::PROTOSS_ASSIMILATOR);
 
-    // TODO
-    // BuildArmy();
-    // ManageArmy();
-    // Defend();
-    // Scout();
-    // BuildOrder();
-
-    // TODO: stop this from running all the time, scout enemy
-    if (CountUnitType(UNIT_TYPEID::TERRAN_MARINE) >= 30) {
-        const GameInfo& game_info = Observation()->GetGameInfo();
-        for (const auto& marine : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_MARINE)) {
-            Actions()->UnitCommand(marine, ABILITY_ID::ATTACK_ATTACK, game_info.enemy_start_locations.front());
-        }
-    }
-
-    TryExpand(ABILITY_ID::BUILD_COMMANDCENTER, UNIT_TYPEID::TERRAN_SCV);
-
-    //TryBuildBarracks();
+    TryExpand(ABILITY_ID::BUILD_NEXUS, UNIT_TYPEID::PROTOSS_PROBE);
 }
 
 // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
@@ -52,24 +35,9 @@ void BetaStar::OnUnitIdle(const Unit* unit) {
 
     switch (unit->unit_type.ToType()) {
 
-        case UNIT_TYPEID::TERRAN_COMMANDCENTER: {
-            break;
-        }
-
-        case UNIT_TYPEID::TERRAN_SCV: {
+        case UNIT_TYPEID::PROTOSS_PROBE: {
             const Unit* target = FindResourceToGather(unit->pos);
             Actions()->UnitCommand(unit, ABILITY_ID::HARVEST_GATHER, target);
-            break;
-        }
-
-        case UNIT_TYPEID::TERRAN_BARRACKS: {
-            Actions()->UnitCommand(unit, ABILITY_ID::TRAIN_MARINE);
-            break;
-        }
-
-        case UNIT_TYPEID::TERRAN_MARINE: {
-            //const GameInfo& game_info = Observation()->GetGameInfo();
-            //Actions()->UnitCommand(unit, ABILITY_ID::ATTACK_ATTACK, game_info.enemy_start_locations.front());
             break;
         }
 
@@ -83,8 +51,8 @@ void BetaStar::OnUnitIdle(const Unit* unit) {
 void BetaStar::OnBuildingConstructionComplete(const Unit* unit) {
     switch (unit->unit_type.ToType()) {
 
-        case UNIT_TYPEID::TERRAN_COMMANDCENTER: {
-            building_command_centre = false;
+        case UNIT_TYPEID::PROTOSS_NEXUS: {
+            building_nexus = false;
             break;
         }
     }

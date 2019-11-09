@@ -13,11 +13,11 @@ bool BetaStar::NeedWorkers() {
     int num_workers = 0;
     int ideal_workers = 0;
 
-    for (const auto& base : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_COMMANDCENTER)) {
+    for (const auto& base : FriendlyUnitsOfType(m_base_typeid)) {
         num_workers += base->assigned_harvesters;
         ideal_workers += base->ideal_harvesters;
     }
-    for (const auto& vg : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_REFINERY)) {
+    for (const auto& vg : FriendlyUnitsOfType(m_gas_building_typeid)) {
         num_workers += vg->assigned_harvesters;
         ideal_workers += vg->ideal_harvesters;
     }
@@ -30,7 +30,7 @@ bool BetaStar::NeedWorkers() {
 // COULD USE SOME WORK
 // try to build a structure
 // returns true if successful, else false
-bool BetaStar::TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type = UNIT_TYPEID::TERRAN_SCV)
+bool BetaStar::TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type)
 {
     const ObservationInterface* observation = Observation();
 
@@ -89,7 +89,6 @@ bool BetaStar::TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeI
         return true;
     }
     return false;
-
 }
 
 bool BetaStar::TryBuildSupplyDepot() {
@@ -99,37 +98,23 @@ bool BetaStar::TryBuildSupplyDepot() {
     }
 
     // Try and build a depot. Find a random SCV and give it the order.
-    return TryBuildStructure(ABILITY_ID::BUILD_SUPPLYDEPOT);
-}
-
-// build a barracks if we don't have one and we have at least one supply depot
-bool BetaStar::TryBuildBarracks() {
-
-    if (CountUnitType(UNIT_TYPEID::TERRAN_SUPPLYDEPOT) < 1) {
-        return false;
-    }
-
-    if (CountUnitType(UNIT_TYPEID::TERRAN_BARRACKS) > 2) {
-        return false;
-    }
-
-    return TryBuildStructure(ABILITY_ID::BUILD_BARRACKS);
+    return TryBuildStructure(m_supply_building_ability, m_worker_typeid);
 }
 
 // build refineries at our bases if we haven't yet
-void BetaStar::BuildRefineries() {
-    if (CountUnitType(UNIT_TYPEID::TERRAN_SUPPLYDEPOT) < 1) {
+void BetaStar::BuildGas() {
+    if (CountUnitType(m_supply_building_typeid) < 1) {
         return;
     }
 
-    for (const auto& cc : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_COMMANDCENTER)) {
-        TryBuildRefinery(cc->pos);
+    for (const auto& cc : FriendlyUnitsOfType(m_base_typeid)) {
+        TryBuildGas(cc->pos);
     }
 }
 
 // MOSTLY COPIED
 // Tries to build a geyser for a base
-bool BetaStar::TryBuildRefinery(Point2D base_location) {
+bool BetaStar::TryBuildGas(Point2D base_location) {
 
     const ObservationInterface* observation = Observation();
 
@@ -141,7 +126,7 @@ bool BetaStar::TryBuildRefinery(Point2D base_location) {
     for (const auto& geyser : geysers) {
         float current_distance = DistanceSquared2D(base_location, geyser->pos);
         if (current_distance < minimum_distance) {
-            if (Query()->Placement(ABILITY_ID::BUILD_REFINERY, geyser->pos)) {
+            if (Query()->Placement(m_gas_building_ability, geyser->pos)) {
                 minimum_distance = current_distance;
                 closestGeyser = geyser->tag;
             }
@@ -152,7 +137,7 @@ bool BetaStar::TryBuildRefinery(Point2D base_location) {
     if (closestGeyser == 0) {
         return false;
     }
-    return TryBuildStructure(ABILITY_ID::BUILD_REFINERY, UNIT_TYPEID::TERRAN_SCV, closestGeyser);
+    return TryBuildStructure(m_gas_building_ability, m_worker_typeid, closestGeyser);
 }
 
 // returns the nearest neutral unit of type target_unit_type
@@ -184,12 +169,12 @@ const Units BetaStar::FriendlyUnitsOfType(UnitTypeID unit_type) const
 
 // returns an uncapped mineral or vespene geyser, or the closest mineral if they are all capped
 const Unit* BetaStar::FindResourceToGather(Point2D unit_pos) {
-    for (const auto& cc : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_COMMANDCENTER)) {
+    for (const auto& cc : FriendlyUnitsOfType(m_base_typeid)) {
         if (cc->assigned_harvesters < cc->ideal_harvesters) {
             return FindNearestNeutralUnit(cc->pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
         }
     }
-    for (const auto& vg : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_REFINERY)) {
+    for (const auto& vg : FriendlyUnitsOfType(m_gas_building_typeid)) {
         if (vg->assigned_harvesters < vg->ideal_harvesters) {
             return vg;
         }
@@ -201,7 +186,7 @@ const Unit* BetaStar::FindResourceToGather(Point2D unit_pos) {
 // To ensure that we do not over or under saturate any base.
 void BetaStar::ManageWorkers(UnitTypeID worker_type, AbilityID worker_gather_command, UnitTypeID vespene_building_type) {
     const ObservationInterface* observation = Observation();
-    Units bases = observation->GetUnits(Unit::Alliance::Self, IsUnit(UNIT_TYPEID::TERRAN_COMMANDCENTER));
+    Units bases = observation->GetUnits(Unit::Alliance::Self, IsUnit(m_base_typeid));
     Units geysers = observation->GetUnits(Unit::Alliance::Self, IsUnit(vespene_building_type));
 
     if (bases.empty()) {
@@ -268,7 +253,7 @@ void BetaStar::ManageWorkers(UnitTypeID worker_type, AbilityID worker_gather_com
 // If we don't do this, probes may mine from other patches if they stray too far from the base after building.
 void BetaStar::MineIdleWorkers(const Unit* worker, AbilityID worker_gather_command, UnitTypeID vespene_building_type) {
     const ObservationInterface* observation = Observation();
-    Units bases = observation->GetUnits(Unit::Alliance::Self, IsUnit(UNIT_TYPEID::TERRAN_COMMANDCENTER));
+    Units bases = observation->GetUnits(Unit::Alliance::Self, IsUnit(m_base_typeid));
     Units geysers = observation->GetUnits(Unit::Alliance::Self, IsUnit(vespene_building_type));
 
     const Unit* valid_mineral_patch = nullptr;
@@ -277,12 +262,6 @@ void BetaStar::MineIdleWorkers(const Unit* worker, AbilityID worker_gather_comma
         return;
     }
 
-    for (const auto& geyser : geysers) {
-        if (geyser->assigned_harvesters < geyser->ideal_harvesters) {
-            Actions()->UnitCommand(worker, worker_gather_command, geyser);
-            return;
-        }
-    }
     //Search for a base that is missing workers.
     for (const auto& base : bases) {
         //If we have already mined out here skip the base.
@@ -292,6 +271,13 @@ void BetaStar::MineIdleWorkers(const Unit* worker, AbilityID worker_gather_comma
         if (base->assigned_harvesters < base->ideal_harvesters) {
             valid_mineral_patch = FindNearestNeutralUnit(base->pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
             Actions()->UnitCommand(worker, worker_gather_command, valid_mineral_patch);
+            return;
+        }
+    }
+
+    for (const auto& geyser : geysers) {
+        if (geyser->assigned_harvesters < geyser->ideal_harvesters) {
+            Actions()->UnitCommand(worker, worker_gather_command, geyser);
             return;
         }
     }
@@ -312,7 +298,7 @@ void BetaStar::MineIdleWorkers(const Unit* worker, AbilityID worker_gather_comma
 bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
     const ObservationInterface* observation = Observation();
 
-    if (building_command_centre || observation->GetMinerals() < 450 || NeedWorkers()) {
+    if (building_nexus || observation->GetMinerals() < 450 || NeedWorkers()) {
         return false;
     }
 
@@ -346,7 +332,7 @@ bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
         }
     }
 
-    building_command_centre = true;
+    building_nexus = true;
 
     Actions()->UnitCommand(unit_to_build, build_ability, closest_expansion);
 
@@ -355,8 +341,80 @@ bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
 
 UnitTypeID BetaStar::GetUnitBuilder(UnitTypeID unitToBuild)
 {
+    // TODO: Warp gates are not represented as a builder
     switch (unitToBuild.ToType())
     {
+        // Protoss Units
+        case UNIT_TYPEID::PROTOSS_ADEPT:
+            return UNIT_TYPEID::PROTOSS_GATEWAY;
+        case UNIT_TYPEID::PROTOSS_ASSIMILATOR:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_CARRIER:
+            return UNIT_TYPEID::PROTOSS_STARGATE;
+        case UNIT_TYPEID::PROTOSS_COLOSSUS:
+            return UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY;
+        case UNIT_TYPEID::PROTOSS_CYBERNETICSCORE:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_DARKSHRINE:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_DARKTEMPLAR:
+            return UNIT_TYPEID::PROTOSS_GATEWAY;
+        case UNIT_TYPEID::PROTOSS_DISRUPTOR:
+            return UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY;
+        case UNIT_TYPEID::PROTOSS_FLEETBEACON:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_FORGE:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_GATEWAY:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_HIGHTEMPLAR:
+            return UNIT_TYPEID::PROTOSS_GATEWAY;
+        case UNIT_TYPEID::PROTOSS_IMMORTAL:
+            return UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY;
+        case UNIT_TYPEID::PROTOSS_INTERCEPTOR:
+            return UNIT_TYPEID::PROTOSS_CARRIER;
+        case UNIT_TYPEID::PROTOSS_MOTHERSHIP:
+            return UNIT_TYPEID::PROTOSS_NEXUS;
+        case UNIT_TYPEID::PROTOSS_NEXUS:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_OBSERVER:
+            return UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY;
+        case UNIT_TYPEID::PROTOSS_ORACLE:
+            return UNIT_TYPEID::PROTOSS_STARGATE;
+        case UNIT_TYPEID::PROTOSS_PHOENIX:
+            return UNIT_TYPEID::PROTOSS_STARGATE;
+        case UNIT_TYPEID::PROTOSS_PHOTONCANNON:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_PROBE:
+            return UNIT_TYPEID::PROTOSS_NEXUS;
+        case UNIT_TYPEID::PROTOSS_PYLON:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_ROBOTICSBAY:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_SENTRY:
+            return UNIT_TYPEID::PROTOSS_GATEWAY;
+        case UNIT_TYPEID::PROTOSS_SHIELDBATTERY:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_STALKER:
+            return UNIT_TYPEID::PROTOSS_GATEWAY;
+        case UNIT_TYPEID::PROTOSS_STARGATE:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_TEMPEST:
+            return UNIT_TYPEID::PROTOSS_STARGATE;
+        case UNIT_TYPEID::PROTOSS_TEMPLARARCHIVE:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL:
+            return UNIT_TYPEID::PROTOSS_PROBE;
+        case UNIT_TYPEID::PROTOSS_VOIDRAY:
+            return UNIT_TYPEID::PROTOSS_STARGATE;
+        case UNIT_TYPEID::PROTOSS_WARPPRISM:
+            return UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY;
+        case UNIT_TYPEID::PROTOSS_ZEALOT:
+            return UNIT_TYPEID::PROTOSS_GATEWAY;
+
+        // Terran Units - no need to complete
         case UNIT_TYPEID::TERRAN_BARRACKS:
             return UNIT_TYPEID::TERRAN_SCV;
         case UNIT_TYPEID::TERRAN_COMMANDCENTER:
@@ -365,6 +423,8 @@ UnitTypeID BetaStar::GetUnitBuilder(UnitTypeID unitToBuild)
             return UNIT_TYPEID::TERRAN_BARRACKS;
         case UNIT_TYPEID::TERRAN_SCV:
             return UNIT_TYPEID::TERRAN_COMMANDCENTER;
+
+        // Should never be reached
         default:
             // Program broke because unit you asked for wasn't added to the switch case yet. Add it.
             std::cout << "ERROR: GetUnitBuilder could not find a builder for [" << unitToBuild.to_string() << "]. Add this to the switch case." << std::endl;
@@ -374,8 +434,80 @@ UnitTypeID BetaStar::GetUnitBuilder(UnitTypeID unitToBuild)
 
 AbilityID BetaStar::GetUnitBuildAbility(UnitTypeID unitToBuild)
 {
+    // TODO: Warping units is a different action. Not represented.
     switch (unitToBuild.ToType())
     {
+        // Protoss Build Actions
+        case UNIT_TYPEID::PROTOSS_ADEPT:
+            return ABILITY_ID::TRAIN_ADEPT;
+        case UNIT_TYPEID::PROTOSS_ASSIMILATOR:
+            return ABILITY_ID::BUILD_ASSIMILATOR;
+        case UNIT_TYPEID::PROTOSS_CARRIER:
+            return ABILITY_ID::TRAIN_CARRIER;
+        case UNIT_TYPEID::PROTOSS_COLOSSUS:
+            return ABILITY_ID::TRAIN_COLOSSUS;
+        case UNIT_TYPEID::PROTOSS_CYBERNETICSCORE:
+            return ABILITY_ID::BUILD_CYBERNETICSCORE;
+        case UNIT_TYPEID::PROTOSS_DARKSHRINE:
+            return ABILITY_ID::BUILD_DARKSHRINE;
+        case UNIT_TYPEID::PROTOSS_DARKTEMPLAR:
+            return ABILITY_ID::TRAIN_DARKTEMPLAR;
+        case UNIT_TYPEID::PROTOSS_DISRUPTOR:
+            return ABILITY_ID::TRAIN_DISRUPTOR;
+        case UNIT_TYPEID::PROTOSS_FLEETBEACON:
+            return ABILITY_ID::BUILD_FLEETBEACON;
+        case UNIT_TYPEID::PROTOSS_FORGE:
+            return ABILITY_ID::BUILD_FORGE;
+        case UNIT_TYPEID::PROTOSS_GATEWAY:
+            return ABILITY_ID::BUILD_GATEWAY;
+        case UNIT_TYPEID::PROTOSS_HIGHTEMPLAR:
+            return ABILITY_ID::TRAIN_HIGHTEMPLAR;
+        case UNIT_TYPEID::PROTOSS_IMMORTAL:
+            return ABILITY_ID::TRAIN_IMMORTAL;
+        case UNIT_TYPEID::PROTOSS_INTERCEPTOR:
+            return ABILITY_ID::BUILD_INTERCEPTORS;
+        case UNIT_TYPEID::PROTOSS_MOTHERSHIP:
+            return ABILITY_ID::TRAIN_MOTHERSHIP;
+        case UNIT_TYPEID::PROTOSS_NEXUS:
+            return ABILITY_ID::BUILD_NEXUS;
+        case UNIT_TYPEID::PROTOSS_OBSERVER:
+            return ABILITY_ID::TRAIN_OBSERVER;
+        case UNIT_TYPEID::PROTOSS_ORACLE:
+            return ABILITY_ID::TRAIN_ORACLE;
+        case UNIT_TYPEID::PROTOSS_PHOENIX:
+            return ABILITY_ID::TRAIN_PHOENIX;
+        case UNIT_TYPEID::PROTOSS_PHOTONCANNON:
+            return ABILITY_ID::BUILD_PHOTONCANNON;
+        case UNIT_TYPEID::PROTOSS_PROBE:
+            return ABILITY_ID::TRAIN_PROBE;
+        case UNIT_TYPEID::PROTOSS_PYLON:
+            return ABILITY_ID::BUILD_PYLON;
+        case UNIT_TYPEID::PROTOSS_ROBOTICSBAY:
+            return ABILITY_ID::BUILD_ROBOTICSBAY;
+        case UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY:
+            return ABILITY_ID::BUILD_ROBOTICSFACILITY;
+        case UNIT_TYPEID::PROTOSS_SENTRY:
+            return ABILITY_ID::TRAIN_SENTRY;
+        case UNIT_TYPEID::PROTOSS_SHIELDBATTERY:
+            return ABILITY_ID::BUILD_SHIELDBATTERY;
+        case UNIT_TYPEID::PROTOSS_STALKER:
+            return ABILITY_ID::TRAIN_STALKER;
+        case UNIT_TYPEID::PROTOSS_STARGATE:
+            return ABILITY_ID::BUILD_STARGATE;
+        case UNIT_TYPEID::PROTOSS_TEMPEST:
+            return ABILITY_ID::TRAIN_TEMPEST;
+        case UNIT_TYPEID::PROTOSS_TEMPLARARCHIVE:
+            return ABILITY_ID::BUILD_TEMPLARARCHIVE;
+        case UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL:
+            return ABILITY_ID::BUILD_TWILIGHTCOUNCIL;
+        case UNIT_TYPEID::PROTOSS_VOIDRAY:
+            return ABILITY_ID::TRAIN_VOIDRAY;
+        case UNIT_TYPEID::PROTOSS_WARPPRISM:
+            return ABILITY_ID::TRAIN_WARPPRISM;
+        case UNIT_TYPEID::PROTOSS_ZEALOT:
+            return ABILITY_ID::TRAIN_ZEALOT;
+
+        // Terran Build Actions - no need to complete
         case UNIT_TYPEID::TERRAN_BARRACKS:
             return ABILITY_ID::BUILD_BARRACKS;
         case UNIT_TYPEID::TERRAN_COMMANDCENTER:
@@ -384,6 +516,8 @@ AbilityID BetaStar::GetUnitBuildAbility(UnitTypeID unitToBuild)
             return ABILITY_ID::TRAIN_MARINE;
         case UNIT_TYPEID::TERRAN_SCV:
             return ABILITY_ID::TRAIN_SCV;
+
+        // Should never be reached
         default:
             // Program broke because unit you asked for wasn't added to the switch case yet. Add it.
             std::cout << "ERROR: GetUnitBuildAbility could not find a build command for [" << unitToBuild.to_string() << "]. Add this to the switch case." << std::endl;
@@ -450,9 +584,9 @@ size_t BetaStar::TrainUnitMultiple(const Units &buildings, UnitTypeID unitType)
 }
 
 void BetaStar::TrainWorkers() {
-    for (const auto& base : FriendlyUnitsOfType(UNIT_TYPEID::TERRAN_COMMANDCENTER)) {
+    for (const auto& base : FriendlyUnitsOfType(m_base_typeid)) {
         if (Observation()->GetMinerals() >= 50 && base->orders.size() == 0 && std::max(0, Observation()->GetFoodCap() - Observation()->GetFoodUsed()) != 0 && NeedWorkers()) {
-            Actions()->UnitCommand(base, ABILITY_ID::TRAIN_SCV);
+            Actions()->UnitCommand(base, m_worker_train_ability);
         }
     }
 }
