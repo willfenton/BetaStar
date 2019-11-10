@@ -28,6 +28,9 @@ public:
     // called each a building is finished construction
     virtual void BetaStar::OnBuildingConstructionComplete(const Unit* unit) final;
 
+    // called when an enemy unit enters vision from out of fog of war
+    virtual void BetaStar::OnUnitEnterVision(const Unit *unit) final;
+
 private:
 
     /* ON-STEP FUNCTIONS */
@@ -43,6 +46,11 @@ private:
     void OnStepExpand();
 
     void OnStepManageWorkers();
+
+    /* ON-UNIT-ENTER-VISION FUNCTIONS */
+
+    // used to build a profile of the opponent over time - no response to threat in this function
+    void GatherIntelligence(const Unit *unit);
 
     /* UTILITY FUNCTIONS */
 
@@ -81,6 +89,9 @@ private:
     // Returns the AbilityID of the ability a builder will need to use to build the specified unit
     AbilityID GetUnitBuildAbility(UnitTypeID unitToBuild);
 
+    // Returns true if unitType is a structure
+    bool IsStructure(UnitTypeID unitType);
+
     // Attempts to train unit of unitType at random, valid building
     // Returns true if successful, false otherwise
     bool TrainUnit(UnitTypeID unitType);
@@ -96,7 +107,6 @@ private:
     // Attempts to train one unit of unitType at specified buildings
     // Returns number of units trained this way
     size_t TrainUnitMultiple(const Units &buildings, UnitTypeID unitType);
-
 
     /* MEMBER DATA */
 
@@ -128,4 +138,11 @@ private:
     const AbilityID m_supply_building_abilityid =  ABILITY_ID::BUILD_PYLON;
     const AbilityID m_gas_building_abilityid =     ABILITY_ID::BUILD_ASSIMILATOR;
 
+    // info about enemy
+    bool has_flying = false;
+    bool has_cloaked = false;
+    bool building_near_our_base = false;
+    bool rush_detected = false;
+    uint32_t last_detected_at_base_loop;
+    std::set<const Unit*> rush_units;
 };

@@ -69,3 +69,11 @@ void BetaStar::OnBuildingConstructionComplete(const Unit* unit) {
         }
     }
 }
+
+void BetaStar::OnUnitEnterVision(const Unit* unit)
+{
+    // gather meta-information about opponent - does not take any actions
+    GatherIntelligence(unit);
+
+    // TODO: Respond to threats
+}
