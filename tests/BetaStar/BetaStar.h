@@ -23,13 +23,15 @@ public:
 
     // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
     // Both buildings and units are considered units and are represented with a Unit object.
-    virtual void BetaStar::OnUnitIdle(const Unit* unit);
+    virtual void OnUnitIdle(const Unit* unit);
 
     // called each a building is finished construction
-    virtual void BetaStar::OnBuildingConstructionComplete(const Unit* unit) final;
+    virtual void OnBuildingConstructionComplete(const Unit* unit) final;
 
     // called when an enemy unit enters vision from out of fog of war
-    virtual void BetaStar::OnUnitEnterVision(const Unit *unit) final;
+    virtual void OnUnitEnterVision(const Unit *unit) final;
+
+    virtual void OnUpgradeCompleted(UpgradeID upgrade_id) final;
 
 private:
 
@@ -47,6 +49,14 @@ private:
 
     void OnStepManageWorkers();
 
+    void OnStepBuildOrder();
+
+    void OnStepBuildArmy();
+
+    void OnStepManageArmy();
+
+    void OnStepResearchUpgrades();
+
     /* ON-UNIT-ENTER-VISION FUNCTIONS */
 
     // used to build a profile of the opponent over time - no response to threat in this function
@@ -59,6 +69,8 @@ private:
     bool TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type);
 
     bool TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type, Tag location_tag);
+
+    void TryBuildStructureNearPylon(AbilityID ability_type_for_structure, UnitTypeID unit_type);
 
     bool TryBuildSupplyDepot();
 
@@ -81,6 +93,8 @@ private:
     bool TryExpand(AbilityID build_ability, UnitTypeID worker_type);
 
     void TrainWorkers();
+
+    bool TryWarpInUnit(AbilityID ability_type_for_unit);
 
     // Returns the UnitTypeID of the unit that builds the specified unit
     // Example: Terran Command Center for SCV and SCV for Terran Command Center
@@ -108,13 +122,46 @@ private:
     // Returns number of units trained this way
     size_t TrainUnitMultiple(const Units &buildings, UnitTypeID unitType);
 
+    void TryResearchUpgrade(AbilityID upgrade_abilityid, UnitTypeID building_type);
+
+
     /* MEMBER DATA */
 
     // position of our starting base
     Point3D m_starting_pos;
 
+    enum starting_positions { SW, NW, NE, SE };
+    int get_starting_position_of_point(Point2D pos)
+    {
+        int starting_position = -1;
+        if (pos.x == 33.5 && pos.y == 33.5) {
+            starting_position = SW;
+        }
+        else if (pos.x == 33.5 && pos.y == 158.5) {
+            starting_position = NW;
+        }
+        else if (pos.x == 158.5 && pos.y == 158.5) {
+            starting_position = NE;
+        }
+        else if (pos.x == 158.5 && pos.y == 33.5) {
+            starting_position = SE;
+        }
+        else {
+            std::cerr << "Error in get_starting_position_of_point()" << std::endl;
+        }
+        return starting_position;
+    }
+
+    // position of enemy's starting base
+    bool m_enemy_base_scouted = false;
+    Point2D m_enemy_base_pos;
+
     // how much supply we have left, updated each step
     int m_supply_left = 0;
+
+    bool m_warpgate_researched = false;
+
+    bool m_attacking = false;
 
     // how many bases to build (max)
     const int m_max_bases = 3;
@@ -123,7 +170,9 @@ private:
     bool m_building_nexus = false;
 
     // all expansion locations
-    std::vector<Point3D> expansion_locations;
+    std::vector<Point3D> m_expansion_locations;
+
+    const Unit* m_initial_scouting_probe;
 
     // common unit ids
     const UnitTypeID m_base_typeid =               UNIT_TYPEID::PROTOSS_NEXUS;
