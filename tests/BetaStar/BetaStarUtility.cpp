@@ -669,3 +669,121 @@ void BetaStar::TrainWorkers() {
         }
     }
 }
+
+void BetaStar::TryBuildStructureNearPylon(AbilityID ability_type_for_structure, UnitTypeID unit_type = UNIT_TYPEID::PROTOSS_PROBE) {
+    const ObservationInterface* observation = Observation();
+
+    std::vector<PowerSource> power_sources = observation->GetPowerSources();
+
+    if (power_sources.empty()) {
+        return;
+    }
+
+    int num_tries = 10;
+
+    for (int i = 0; i < num_tries; ++i) {
+        const PowerSource& random_power_source = GetRandomEntry(power_sources);
+        
+        if (observation->GetUnit(random_power_source.tag)->unit_type == UNIT_TYPEID::PROTOSS_WARPPRISM) {
+            continue;
+        }
+
+        float radius = random_power_source.radius;
+        float rx = GetRandomScalar();
+        float ry = GetRandomScalar();
+        Point2D build_location = Point2D(random_power_source.position.x + rx * radius, random_power_source.position.y + ry * radius);
+
+        if (Query()->Placement(ability_type_for_structure, build_location)) {
+            Units workers = FriendlyUnitsOfType(unit_type);
+            for (const auto& worker : workers) {
+                for (const auto& order : worker->orders) {
+                    if (order.ability_id == ability_type_for_structure) {
+                        return;
+                    }
+                }
+            }
+            const Unit* closest_worker = nullptr;
+            float closest_distance = std::numeric_limits<float>::max();
+            for (const auto& worker : workers) {
+                float distance = DistanceSquared2D(build_location, worker->pos);
+                if (distance < closest_distance) {
+                    closest_worker = worker;
+                    closest_distance = distance;
+                }
+            }
+            if (closest_worker == nullptr) {
+                return;
+            }
+            Actions()->UnitCommand(closest_worker, ability_type_for_structure, build_location);
+            return;
+        }
+    }
+}
+
+void BetaStar::TryResearchUpgrade(AbilityID upgrade_abilityid, UnitTypeID building_type)
+{
+    const ObservationInterface* observation = Observation();
+
+    Units buildings = FriendlyUnitsOfType(building_type);
+
+    // check whether the upgrade is already being researched
+    for (const auto& building : buildings) {
+        if (building->build_progress != 1) {
+            continue;
+        }
+        for (const auto& order : building->orders) {
+            if (order.ability_id == upgrade_abilityid) {
+                return;
+            }
+        }
+    }
+
+    // look for unoccupied building, research upgrade
+    for (const auto& building : buildings) {
+        if (building->build_progress != 1) {
+            continue;
+        }
+        if (building->orders.size() == 0) {
+            Actions()->UnitCommand(building, upgrade_abilityid);
+            return;
+        }
+    }
+}
+
+bool BetaStar::TryWarpInUnit(AbilityID ability_type_for_unit)
+{
+    const ObservationInterface* observation = Observation();
+    const GameInfo game_info = observation->GetGameInfo();
+
+    std::vector<PowerSource> power_sources = observation->GetPowerSources();
+    Units warpgates = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_WARPGATE);
+
+    if (power_sources.empty()) {
+        return false;
+    }
+
+    const PowerSource& random_power_source = GetRandomEntry(power_sources);
+    float radius = random_power_source.radius;
+    float rx = GetRandomScalar();
+    float ry = GetRandomScalar();
+    Point2D build_location = Point2D(random_power_source.position.x + rx * radius, random_power_source.position.y + ry * radius);
+
+    // If the warp location is walled off, don't warp there.
+    // We check this to see if there is pathing from the build location to the center of the map
+    if (Query()->PathingDistance(build_location, Point2D(game_info.playable_max.x / 2, game_info.playable_max.y / 2)) < .01f) {
+        return false;
+    }
+
+    for (const auto& warpgate : warpgates) {
+        if (warpgate->build_progress == 1) {
+            AvailableAbilities abilities = Query()->GetAbilitiesForUnit(warpgate);
+            for (const auto& ability : abilities.abilities) {
+                if (ability.ability_id == ability_type_for_unit) {
+                    Actions()->UnitCommand(warpgate, ability_type_for_unit, build_location);
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}

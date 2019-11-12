@@ -107,7 +107,7 @@ void BetaStar::OnStepBuildPylons()
     const ObservationInterface* observation = Observation();
 
     // build a pylon if we have less than supply_threshold supply left
-    const int supply_threshold = 5;
+    const int supply_threshold = 6;
 
     int num_minerals = observation->GetMinerals();
     int supply_left = (observation->GetFoodCap() - observation->GetFoodUsed());
@@ -147,7 +147,17 @@ void BetaStar::OnStepBuildPylons()
     }
 
     // select the worker to build the pylon
-    const Unit* worker_to_build = GetRandomEntry(workers);
+    const Unit* worker_to_build = nullptr;
+    for (const auto& worker : workers) {
+        if (worker->tag != m_initial_scouting_probe->tag) {
+            worker_to_build = worker;
+            break;
+        }
+    }
+
+    if (worker_to_build == nullptr) {
+        return;
+    }
 
     // find a position where we can build the pylon
     float rx = GetRandomScalar();
@@ -303,9 +313,9 @@ void BetaStar::OnStepExpand()
     Units gases = FriendlyUnitsOfType(m_gas_building_typeid);
 
     // check whether we still need to build gases
-    if (gases.size() < (2 * bases.size())) {
-        return;
-    }
+    //if (gases.size() < (2 * bases.size())) {
+        //return;
+    //}
 
     // check if any of our gases still need workers, if so then return
     for (const auto& gas : gases) {
@@ -335,7 +345,7 @@ void BetaStar::OnStepExpand()
     // find the closest expansion location
     float minimum_distance = std::numeric_limits<float>::max();
     Point3D closest_expansion;
-    for (const auto& expansion : expansion_locations) {
+    for (const auto& expansion : m_expansion_locations) {
         float current_distance = Distance2D(m_starting_pos, expansion);
         if (current_distance < .01f) {
             continue;
@@ -486,4 +496,170 @@ void BetaStar::OnStepManageWorkers()
     }
 
     // maybe check here if there are still idle workers, reassign them?
+}
+
+void BetaStar::OnStepBuildOrder()
+{
+    const ObservationInterface* observation = Observation();
+
+    int num_minerals = observation->GetMinerals();
+
+    size_t num_bases = CountUnitType(UNIT_TYPEID::PROTOSS_NEXUS);
+    size_t num_gases = CountUnitType(UNIT_TYPEID::PROTOSS_ASSIMILATOR);
+    size_t num_pylons = CountUnitType(UNIT_TYPEID::PROTOSS_PYLON);
+    size_t num_gateways = CountUnitType(UNIT_TYPEID::PROTOSS_GATEWAY);
+    size_t num_warpgates = CountUnitType(UNIT_TYPEID::PROTOSS_WARPGATE);
+    size_t num_forges = CountUnitType(UNIT_TYPEID::PROTOSS_FORGE);
+    size_t num_cybernetics_cores = CountUnitType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE);
+
+    if (num_pylons >= 1 && (num_gateways + num_warpgates) < 1 && num_minerals >= 150) {
+        TryBuildStructureNearPylon(ABILITY_ID::BUILD_GATEWAY, m_worker_typeid);
+        return;
+    }
+
+    if ((num_gateways + num_warpgates) > 0 && num_gases < 1 && num_minerals >= 75) {
+        OnStepBuildGas();
+        return;
+    }
+
+    if (num_gases > 0 && num_cybernetics_cores < 1 && num_minerals >= 150) {
+        TryBuildStructureNearPylon(ABILITY_ID::BUILD_CYBERNETICSCORE, m_worker_typeid);
+        return;
+    }
+
+    if (num_cybernetics_cores > 0 && num_gases < 2 && num_minerals >= 75) {
+        OnStepBuildGas();
+        return;
+    }
+
+    if (num_gases >= 2 && (num_gateways + num_warpgates) < 4 && num_minerals >= 150) {
+        TryBuildStructureNearPylon(ABILITY_ID::BUILD_GATEWAY, m_worker_typeid);
+        return;
+    }
+
+    if ((num_gateways + num_warpgates) >= 4 && num_minerals > 300) {
+        TryBuildStructureNearPylon(ABILITY_ID::BUILD_GATEWAY, m_worker_typeid);
+        return;
+    }
+}
+
+//Try to get upgrades depending on build
+void BetaStar::OnStepResearchUpgrades() {
+    const ObservationInterface* observation = Observation();
+
+    std::vector<UpgradeID> upgrades = observation->GetUpgrades();
+
+    Units bases = FriendlyUnitsOfType(m_base_typeid);
+    size_t base_count = bases.size();
+
+    if (upgrades.empty()) {
+        TryResearchUpgrade(ABILITY_ID::RESEARCH_WARPGATE, UNIT_TYPEID::PROTOSS_CYBERNETICSCORE);
+        for (const auto& cybernetics_core : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE)) {
+            if (cybernetics_core->build_progress != 1) {
+                continue;
+            }
+            for (const auto& order : cybernetics_core->orders) {
+                if (order.ability_id == ABILITY_ID::RESEARCH_WARPGATE) {
+                    auto buffs = cybernetics_core->buffs;
+                    if (std::find(buffs.begin(), buffs.end(), BuffID(281)) == buffs.end()) {
+                        for (const auto& base : bases) {
+                            Actions()->UnitCommand(base, AbilityID(3755), cybernetics_core);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else {
+        for (const auto& upgrade : upgrades) {
+            if (upgrade == UPGRADE_ID::PROTOSSGROUNDWEAPONSLEVEL1 && base_count > 2) {
+                TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDWEAPONS, UNIT_TYPEID::PROTOSS_FORGE);
+            }
+            else if (upgrade == UPGRADE_ID::PROTOSSGROUNDARMORSLEVEL1 && base_count > 2) {
+                TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDARMOR, UNIT_TYPEID::PROTOSS_FORGE);
+            }
+            else if (upgrade == UPGRADE_ID::PROTOSSGROUNDWEAPONSLEVEL2 && base_count > 3) {
+                TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDWEAPONS, UNIT_TYPEID::PROTOSS_FORGE);
+            }
+            else if (upgrade == UPGRADE_ID::PROTOSSGROUNDARMORSLEVEL2 && base_count > 3) {
+                TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDARMOR, UNIT_TYPEID::PROTOSS_FORGE);
+            }
+            else {
+                TryResearchUpgrade(ABILITY_ID::RESEARCH_EXTENDEDTHERMALLANCE, UNIT_TYPEID::PROTOSS_ROBOTICSBAY);
+                TryResearchUpgrade(ABILITY_ID::RESEARCH_BLINK, UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
+                TryResearchUpgrade(ABILITY_ID::RESEARCH_CHARGE, UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
+                TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDWEAPONS, UNIT_TYPEID::PROTOSS_FORGE);
+                TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDARMOR, UNIT_TYPEID::PROTOSS_FORGE);
+            }
+        }
+    }
+}
+
+void BetaStar::OnStepBuildArmy()
+{
+    const ObservationInterface* observation = Observation();
+
+    int num_minerals = observation->GetMinerals();
+    int num_gas = observation->GetVespene();
+
+    Units gateways = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_GATEWAY);
+    Units warpgates = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_WARPGATE);
+
+    Units cybernetics_cores = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE);
+    bool core_built = false;
+    for (const auto& core : cybernetics_cores) {
+        if (core->build_progress == 1) {
+            core_built = true;
+            break;
+        }
+    }
+
+    if (m_warpgate_researched) {
+        TryWarpInUnit(ABILITY_ID::TRAINWARP_STALKER);
+    }
+    else {
+        for (const auto& gateway : gateways) {
+            if (gateway->build_progress != 1) {
+                continue;
+            }
+            if (gateway->orders.size() != 0) {
+                continue;
+            }
+            if (core_built && num_minerals >= 125 && num_gas >= 50) {
+                Actions()->UnitCommand(gateway, ABILITY_ID::TRAIN_STALKER);
+                num_minerals -= 125;
+                num_gas -= 50;
+            }
+            else if (num_minerals >= 100) {
+                Actions()->UnitCommand(gateway, ABILITY_ID::TRAIN_ZEALOT);
+                num_minerals -= 100;
+            }
+        }
+    }
+}
+
+void BetaStar::OnStepManageArmy()
+{
+    const ObservationInterface* observation = Observation();
+
+    Units zealots = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_ZEALOT);
+    Units stalkers = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_STALKER);
+
+    if (!m_attacking && m_enemy_base_scouted && (zealots.size() + stalkers.size()) >= 12) {
+        m_attacking = true;
+    }
+
+    if (m_attacking) {
+        for (const auto& zealot : zealots) {
+            if (zealot->orders.empty()) {
+                Actions()->UnitCommand(zealot, ABILITY_ID::ATTACK_ATTACK, m_enemy_base_pos);
+            }
+        }
+        for (const auto& stalker : stalkers) {
+            if (stalker->orders.empty()) {
+                Actions()->UnitCommand(stalker, ABILITY_ID::ATTACK_ATTACK, m_enemy_base_pos);
+            }
+        }
+    }
 }
