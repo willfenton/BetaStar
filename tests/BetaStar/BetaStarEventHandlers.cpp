@@ -146,12 +146,16 @@ void BetaStar::OnUnitEnterVision(const Unit* unit)
 void BetaStar::OnUpgradeCompleted(UpgradeID upgrade_id)
 {
     switch (upgrade_id.ToType()) {
-
         case UPGRADE_ID::WARPGATERESEARCH: {
             std::cout << "Warpgate research complete" << std::endl;
             m_warpgate_researched = true;
+            break;
         }
-
+        case UPGRADE_ID::BLINKTECH: {
+            std::cout << "Blink research complete" << std::endl;
+            m_blink_researched = true;
+            break;
+        }
         default: {
             break;
         }
