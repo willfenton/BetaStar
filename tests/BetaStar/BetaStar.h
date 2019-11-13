@@ -159,7 +159,11 @@ private:
     // how much supply we have left, updated each step
     int m_supply_left = 0;
 
+    bool m_warpgate_researching = false;
     bool m_warpgate_researched = false;
+
+    bool m_blink_researching = false;
+    bool m_blink_researched = false;
 
     bool m_attacking = false;
 
