@@ -787,3 +787,8 @@ bool BetaStar::TryWarpInUnit(AbilityID ability_type_for_unit)
     }
     return false;
 }
+
+void BetaStar::ClearArmyRatios()
+{
+    army_ratios.clear();
+}

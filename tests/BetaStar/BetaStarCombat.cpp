@@ -62,3 +62,8 @@ void BetaStar::GatherIntelligence(const Unit *unit)
         }
     }
 }
+
+void BetaStar::TrainBalancedArmy()
+{
+
+}

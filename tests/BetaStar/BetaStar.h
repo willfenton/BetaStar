@@ -7,6 +7,8 @@
 #include "sc2utils/sc2_manage_process.h"
 #include "sc2utils/sc2_arg_parser.h"
 
+#include <map>
+
 using namespace sc2;
 
 /*
@@ -122,6 +124,12 @@ private:
     // Returns number of units trained this way
     size_t TrainUnitMultiple(const Units &buildings, UnitTypeID unitType);
 
+    // Tries to train a balanced army based on private member unit ratios
+    void TrainBalancedArmy();
+
+    // Sets all unit ratios to 0.0f - nothing will be built after this is called unless ratios are set
+    void ClearArmyRatios();
+
     void TryResearchUpgrade(AbilityID upgrade_abilityid, UnitTypeID building_type);
 
 
@@ -198,4 +206,12 @@ private:
     bool rush_detected = false;
     uint32_t last_detected_at_base_loop;
     std::set<const Unit*> rush_units;
+
+
+    // target maximum for how many units (not population) the army should have
+    size_t max_army_size = 50;
+
+    // ratios for each army unit type (floor of ratio * max_army_size = target # of unit to produce)
+    // note that by default army_rations[UNIT_TYPEID] will return 0.0f if a unit type hasn't been added
+    std::map<UNIT_TYPEID, float> army_ratios;
 };
