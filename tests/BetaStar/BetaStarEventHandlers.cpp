@@ -30,9 +30,9 @@ void BetaStar::OnStep() {
 
     OnStepManageWorkers();
 
-    OnStepBuildArmy();
+    //OnStepBuildArmy();
 
-    //TrainBalancedArmy();
+    TrainBalancedArmy();
 
     OnStepBuildOrder();
 
@@ -87,8 +87,7 @@ void BetaStar::OnGameStart()
     }
 
     // Testing basic army ratio (should be set dynamically based on intelligence about enemy)
-    army_ratios[UNIT_TYPEID::PROTOSS_ZEALOT] = 0.33f;
-    army_ratios[UNIT_TYPEID::PROTOSS_STALKER] = 0.66f;
+    army_ratios[UNIT_TYPEID::PROTOSS_STALKER] = 1.0f;
 }
 
 // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
