@@ -33,6 +33,7 @@ void BetaStar::GatherIntelligence(const Unit *unit)
         if (!building_near_our_base && (IsStructure(unit->unit_type) || unit->unit_type == UNIT_TYPEID::TERRAN_SIEGETANKSIEGED))
         {
             building_near_our_base = true;
+            std::cout << "Enemy building near our base" << std::endl;
         }
 
         // Rush detection
