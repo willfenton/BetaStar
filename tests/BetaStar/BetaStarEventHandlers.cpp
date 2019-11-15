@@ -113,10 +113,10 @@ void BetaStar::OnBuildingConstructionComplete(const Unit* unit)
 {
     switch (unit->unit_type.ToType()) {
 
-        case UNIT_TYPEID::PROTOSS_NEXUS: {
-            m_building_nexus = false;
-            break;
-        }
+        //case UNIT_TYPEID::PROTOSS_NEXUS: {
+        //    m_building_nexus = false;
+        //    break;
+        //}
     }
 }
 
