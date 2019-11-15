@@ -673,6 +673,30 @@ void BetaStar::OnStepManageArmy()
 
     Units enemy_units = observation->GetUnits(Unit::Alliance::Enemy);
 
+    // base defense code
+    if (!m_attacking) {
+        for (const auto& unit : enemy_units) {
+            if (unit->display_type == Unit::DisplayType::Visible) {
+                float distance = DistanceSquared2D(m_starting_pos, unit->pos);
+                if (distance < 2500) {
+                    for (const auto& stalker : stalkers) {
+                        Actions()->UnitCommand(stalker, ABILITY_ID::ATTACK, unit->pos);
+                    }
+                    break;
+                }
+            }
+        }
+        for (const auto& stalker : stalkers) {
+            float distance_from_base = DistanceSquared2D(stalker->pos, m_starting_pos);
+            if (!m_attacking && distance_from_base > 2500) {
+                Actions()->UnitCommand(stalker, ABILITY_ID::MOVE, m_starting_pos);
+            }
+            else if (stalker->orders.size() == 0 && distance_from_base >= 500 && distance_from_base <= 2500) {
+                Actions()->UnitCommand(stalker, ABILITY_ID::MOVE, m_starting_pos);
+            }
+        }
+    }
+
     if (!m_attacking && m_blink_researched && m_enemy_base_scouted && (zealots.size() + stalkers.size()) >= 12) {
         m_attacking = true;
     }
