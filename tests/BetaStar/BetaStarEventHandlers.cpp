@@ -86,8 +86,8 @@ void BetaStar::OnGameStart()
         enemy_start_locations.erase(std::find(enemy_start_locations.begin(), enemy_start_locations.end(), closest_start_location));
     }
 
-    // Testing basic army ratio (should be set dynamically based on intelligence about enemy)
-    army_ratios[UNIT_TYPEID::PROTOSS_STALKER] = 1.0f;
+    // Testing basic blink stalker strat (should be set dynamically based on intelligence about enemy and our win/loss record)
+    SetStrategy(Strategy::Blink_Stalker_Rush);
 }
 
 // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
@@ -111,13 +111,13 @@ void BetaStar::OnUnitIdle(const Unit* unit)
 
 void BetaStar::OnBuildingConstructionComplete(const Unit* unit)
 {
-    switch (unit->unit_type.ToType()) {
+    /*switch (unit->unit_type.ToType()) {
 
-        //case UNIT_TYPEID::PROTOSS_NEXUS: {
-        //    m_building_nexus = false;
-        //    break;
-        //}
-    }
+        case UNIT_TYPEID::PROTOSS_NEXUS: {
+            m_building_nexus = false;
+            break;
+        }
+    }*/
 }
 
 void BetaStar::OnUnitEnterVision(const Unit* unit)

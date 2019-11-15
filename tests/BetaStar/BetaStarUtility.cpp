@@ -813,3 +813,18 @@ size_t BetaStar::CountUnitType(UnitTypeID unitType, bool includeIncomplete)
 
     return count;
 }
+
+void BetaStar::SetStrategy(Strategy newStrategy)
+{
+    m_current_strategy = newStrategy;
+    // Set all ratios to 0. No new units will be built automatically.
+    ClearArmyRatios();
+
+    // Set new army ratios based on the strategy (can be fine-tuned elsewhere)
+    switch (newStrategy)
+    {
+        case Strategy::Blink_Stalker_Rush:
+            army_ratios[UNIT_TYPEID::PROTOSS_STALKER] = 1.0f;
+            break;
+    }
+}
