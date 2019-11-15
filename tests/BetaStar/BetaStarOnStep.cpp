@@ -32,10 +32,8 @@ void BetaStar::OnStepTrainWorkers()
         return;
     }
 
-    int sum_assigned_harvesters = 0;    // # of workers currently working
-    int sum_ideal_harvesters = 0;       // ideal # of workers
-
-    int workers_training = 0;   // # of workers currently being trained
+    int sum_ideal_harvesters = 0;                         // ideal # of workers
+    int total_workers = (int)CountUnitType(m_worker_typeid);   // total # of workers (including those in training)
 
     const Units bases = FriendlyUnitsOfType(m_base_typeid);
     const Units gases = FriendlyUnitsOfType(m_gas_building_typeid);
@@ -48,15 +46,7 @@ void BetaStar::OnStepTrainWorkers()
             sum_ideal_harvesters += 16;  // train workers for the base under construction
             continue;
         }
-        sum_assigned_harvesters += base->assigned_harvesters;
         sum_ideal_harvesters += base->ideal_harvesters;
-
-        // check for workers being trained
-        for (const auto& order : base->orders) {
-            if (order.ability_id == m_worker_train_abilityid) {
-                ++workers_training;
-            }
-        }
     }
 
     // compute gas worker counts
@@ -66,13 +56,12 @@ void BetaStar::OnStepTrainWorkers()
             sum_ideal_harvesters += 3;  // train 3 workers so that the gas can be worked once it's done
             continue;
         }
-        sum_assigned_harvesters += gas->assigned_harvesters;
         sum_ideal_harvesters += gas->ideal_harvesters;
     }
 
     for (const auto& base : bases) {
         // check whether we should train another worker, if not then return
-        if (sum_assigned_harvesters + workers_training >= sum_ideal_harvesters) {
+        if (total_workers >= sum_ideal_harvesters) {
             return;
         }
         if (num_minerals < 50) {
@@ -86,17 +75,16 @@ void BetaStar::OnStepTrainWorkers()
         if (base->build_progress != 1) {
             continue;
         }
-        if (base->orders.size() > 0) {
-            continue;
+
+        // attempt to train a worker - will not fill queue, which leaves us with more resource flexibility
+        // (and our bot has instant response, so doesn't need a full queue)
+        if (TrainUnit(base, m_worker_typeid))
+        {
+            // update stats if worker was added to training queue
+            ++total_workers;
+            --supply_left;
+            num_minerals -= 50;
         }
-
-        // train a worker
-        Actions()->UnitCommand(base, m_worker_train_abilityid);
-
-        // update stats
-        ++workers_training;
-        --supply_left;
-        num_minerals -= 50;
     }
 }
 
@@ -213,15 +201,16 @@ void BetaStar::OnStepBuildGas()
         }
     }
 
+    //NOTE: Commented out because it can needlessly delay moving through the build order if, for example, one worker is building/scouting so minerals are desaturated
     // if we don't have enough workers on minerals then return
-    for (const auto& base : bases) {
+    /*for (const auto& base : bases) {
         if (base->build_progress != 1) {
             continue;
         }
         if (base->assigned_harvesters < base->ideal_harvesters) {
             return;
         }
-    }
+    }*/
 
     Units geysers = observation->GetUnits(Unit::Alliance::Neutral, IsUnit(UNIT_TYPEID::NEUTRAL_VESPENEGEYSER));
 
@@ -655,25 +644,23 @@ void BetaStar::OnStepBuildArmy()
         return;
     }
 
-    if (m_warpgate_researched) {
-        if (num_minerals >= 125 && num_gas >= 50) {
-            TryWarpInUnit(ABILITY_ID::TRAINWARP_STALKER);
-        }
-    }
-    else {
-        for (const auto& gateway : gateways) {
-            if (gateway->build_progress != 1) {
-                continue;
-            }
-            if (gateway->orders.size() != 0) {
-                continue;
-            }
-            if (core_built && num_minerals >= 125 && num_gas >= 50) {
-                Actions()->UnitCommand(gateway, ABILITY_ID::TRAIN_STALKER);
-                num_minerals -= 125;
-                num_gas -= 50;
+    if (core_built)
+    {
+        if (m_warpgate_researched && m_attacking)
+        {
+            for (const Unit *warpgate : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_WARPGATE))
+            {
+                if (WarpUnit(warpgate, m_enemy_base_pos, UNIT_TYPEID::PROTOSS_STALKER))
+                {
+                    num_minerals -= 125;
+                    num_gas -= 125;
+                }
             }
         }
+
+        int num_built = (int)MassTrainUnit(UNIT_TYPEID::PROTOSS_STALKER);
+        num_minerals -= num_built * 125;
+        num_gas -= num_built * 50;
     }
 }
 
@@ -691,6 +678,16 @@ void BetaStar::OnStepManageArmy()
     }
 
     if (m_attacking) {
+        for (const auto& zealot : zealots) {
+            if (zealot->orders.empty()) {
+                if (enemy_units.size() == 0) {
+                    Actions()->UnitCommand(zealot, ABILITY_ID::ATTACK, m_enemy_base_pos);
+                }
+                else {
+                    Actions()->UnitCommand(zealot, ABILITY_ID::ATTACK, enemy_units.front()->pos);
+                }
+            }
+        }
         for (const auto& stalker : stalkers) {
             if (stalker->orders.empty()) {
                 if (enemy_units.size() == 0) {

@@ -72,10 +72,6 @@ private:
 
     void TryBuildStructureNearPylon(AbilityID ability_type_for_structure, UnitTypeID unit_type);
 
-    bool TryBuildSupplyDepot();
-
-    void BuildGas();
-
     bool TryBuildGas(Point2D base_location);
 
     bool NeedWorkers();
@@ -86,15 +82,7 @@ private:
 
     const Unit* FindResourceToGather(Point2D unit_pos);
 
-    void ManageWorkers(UnitTypeID worker_type, AbilityID worker_gather_command, UnitTypeID vespene_building_type);
-
-    void MineIdleWorkers(const Unit* worker, AbilityID worker_gather_command, UnitTypeID vespene_building_type);
-
     bool TryExpand(AbilityID build_ability, UnitTypeID worker_type);
-
-    void TrainWorkers();
-
-    bool TryWarpInUnit(AbilityID ability_type_for_unit);
 
     // Returns the UnitTypeID of the unit that builds the specified unit
     // Example: Terran Command Center for SCV and SCV for Terran Command Center
@@ -117,19 +105,15 @@ private:
     // Returns true if successful, false otherwise
     bool TrainUnit(const Unit* building, UnitTypeID unitType);
 
-    // Attempts to train one unit of unitType at all valid buildings
-    // Returns number of units trained this way
-    size_t TrainUnitMultiple(UnitTypeID unitType);
-
-    // Attempts to train one unit of unitType at specified buildings
-    // Returns number of units trained this way
-    size_t TrainUnitMultiple(const Units &buildings, UnitTypeID unitType);
-
     // Attempts to warp a unit in beside the power source closest to the requested build location
     bool WarpUnit(Point2D warpLocation, UnitTypeID unitType);
 
     // Attempts to warp a unit in beside the power source closest to the requested build location from the requested building
     bool WarpUnit(const Unit *building, Point2D warpLocation, UnitTypeID unitType);
+
+    // Attempts to train unit of unitType at all valid buildings
+    // Warpgates will warp unit close to themselves when this is used (i.e. call WarpUnit directly when attacking to warp units closer to enemy)
+    size_t MassTrainUnit(UnitTypeID unitType);
 
     // Tries to train a balanced army based on private member unit ratios
     void TrainBalancedArmy();
@@ -219,11 +203,27 @@ private:
     uint32_t last_detected_at_base_loop;
     std::set<const Unit*> rush_units;
 
-
-    // target maximum for how many units (not population) the army should have
-    size_t max_army_size = 50;
-
-    // ratios for each army unit type (floor of ratio * max_army_size = target # of unit to produce)
+    // ratios for units in the army
+    // Formula: ceiling of ratio * (current army size + X) = target # of unit to produce (X is arbitrary, and represents a future army size so that builds don't get stuck at perfect ratios)
     // note that by default army_rations[UNIT_TYPEID] will return 0.0f if a unit type hasn't been added
     std::map<UNIT_TYPEID, float> army_ratios;
+
+    // all unit types that we can manage by ratio
+    std::vector<UNIT_TYPEID> managed_unit_types{
+        UNIT_TYPEID::PROTOSS_ADEPT,
+        UNIT_TYPEID::PROTOSS_CARRIER,
+        UNIT_TYPEID::PROTOSS_COLOSSUS,
+        UNIT_TYPEID::PROTOSS_DARKTEMPLAR,
+        UNIT_TYPEID::PROTOSS_DISRUPTOR,
+        UNIT_TYPEID::PROTOSS_HIGHTEMPLAR,
+        UNIT_TYPEID::PROTOSS_IMMORTAL,
+        UNIT_TYPEID::PROTOSS_ORACLE,
+        UNIT_TYPEID::PROTOSS_PHOENIX,
+        UNIT_TYPEID::PROTOSS_SENTRY,
+        UNIT_TYPEID::PROTOSS_STALKER,
+        UNIT_TYPEID::PROTOSS_TEMPEST,
+        UNIT_TYPEID::PROTOSS_VOIDRAY,
+        UNIT_TYPEID::PROTOSS_WARPPRISM,
+        UNIT_TYPEID::PROTOSS_ZEALOT
+    };
 };

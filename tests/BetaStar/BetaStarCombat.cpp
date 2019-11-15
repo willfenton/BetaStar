@@ -8,21 +8,21 @@ void BetaStar::GatherIntelligence(const Unit *unit)
     if (!has_flying && unit->is_flying)
     {
         has_flying = true;
-        std::cout << "Has Flying" << std::endl;
+        std::cout << "Enemy has flying units" << std::endl;
     }
 
     // detect cloaked units
     if (!has_cloaked && (unit->cloak == Unit::Cloaked || unit->cloak == Unit::CloakedDetected))
     {
         has_cloaked = true;
-        std::cout << "Has Cloaked" << std::endl;
+        std::cout << "Enemy has cloaked units" << std::endl;
     }
 
     // detect detector units (if they don't have any, we can lean into cloaked units)
     if (!has_detection && unit->detect_range > 0.1f)
     {
         has_detection = true;
-        std::cout << "Has Detection" << std::endl;
+        std::cout << "Enemy has detection units" << std::endl;
     }
 
     // detect a rush and/or other strats that pose threat to our main base
@@ -72,5 +72,24 @@ void BetaStar::GatherIntelligence(const Unit *unit)
 
 void BetaStar::TrainBalancedArmy()
 {
+    // get our own modified army count instead of using the built-in function since we may not want to take
+    // into account units that aren't managed by this function
+    size_t modifiedArmyCount = 0;
+    for (UNIT_TYPEID tID : managed_unit_types)
+    {
+        modifiedArmyCount += CountUnitType(tID);
+    }
 
+    for (UNIT_TYPEID tID : managed_unit_types)
+    {
+        // always be building toward a future army so that armies don't get stuck at perfect ratios with a small number of units
+        if (CountUnitType(tID) < ceil(army_ratios[tID] * (modifiedArmyCount + 1)))
+        {
+            // we're training a unit, so the army count goes up
+            if (TrainUnit(tID))
+            {
+                ++modifiedArmyCount;
+            }
+        }
+    }
 }

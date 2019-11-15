@@ -85,27 +85,6 @@ bool BetaStar::TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeI
     return false;
 }
 
-bool BetaStar::TryBuildSupplyDepot() {
-    // If we still have enough supply, don't build a supply depot.
-    if (std::max(0, Observation()->GetFoodCap() - Observation()->GetFoodUsed()) > 3) {
-        return false;
-    }
-
-    // Try and build a depot. Find a random SCV and give it the order.
-    return TryBuildStructure(m_supply_building_abilityid, m_worker_typeid);
-}
-
-// build refineries at our bases if we haven't yet
-void BetaStar::BuildGas() {
-    if (CountUnitType(m_supply_building_typeid) < 1) {
-        return;
-    }
-
-    for (const auto& cc : FriendlyUnitsOfType(m_base_typeid)) {
-        TryBuildGas(cc->pos);
-    }
-}
-
 // MOSTLY COPIED
 // Tries to build a geyser for a base
 bool BetaStar::TryBuildGas(Point2D base_location) {
@@ -174,116 +153,6 @@ const Unit* BetaStar::FindResourceToGather(Point2D unit_pos) {
         }
     }
     return FindNearestNeutralUnit(unit_pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
-}
-
-// MOSTLY COPIED
-// To ensure that we do not over or under saturate any base.
-void BetaStar::ManageWorkers(UnitTypeID worker_type, AbilityID worker_gather_command, UnitTypeID vespene_building_type) {
-    const ObservationInterface* observation = Observation();
-    Units bases = observation->GetUnits(Unit::Alliance::Self, IsUnit(m_base_typeid));
-    Units geysers = observation->GetUnits(Unit::Alliance::Self, IsUnit(vespene_building_type));
-
-    if (bases.empty()) {
-        return;
-    }
-
-    for (const auto& base : bases) {
-        //If we have already mined out or still building here skip the base.
-        if (base->ideal_harvesters == 0 || base->build_progress != 1) {
-            continue;
-        }
-        //if base is
-        if (base->assigned_harvesters > base->ideal_harvesters) {
-            Units workers = observation->GetUnits(Unit::Alliance::Self, IsUnit(worker_type));
-
-            for (const auto& worker : workers) {
-                if (!worker->orders.empty()) {
-                    if (worker->orders.front().target_unit_tag == base->tag) {
-                        //This should allow them to be picked up by mineidleworkers()
-                        MineIdleWorkers(worker, worker_gather_command, vespene_building_type);
-                        return;
-                    }
-                }
-            }
-        }
-    }
-    Units workers = observation->GetUnits(Unit::Alliance::Self, IsUnit(worker_type));
-    for (const auto& geyser : geysers) {
-        if (geyser->ideal_harvesters == 0 || geyser->build_progress != 1) {
-            continue;
-        }
-        if (geyser->assigned_harvesters > geyser->ideal_harvesters) {
-            for (const auto& worker : workers) {
-                if (!worker->orders.empty()) {
-                    if (worker->orders.front().target_unit_tag == geyser->tag) {
-                        //This should allow them to be picked up by mineidleworkers()
-                        MineIdleWorkers(worker, worker_gather_command, vespene_building_type);
-                        return;
-                    }
-                }
-            }
-        }
-        else if (geyser->assigned_harvesters < geyser->ideal_harvesters) {
-            for (const auto& worker : workers) {
-                if (!worker->orders.empty()) {
-                    //This should move a worker that isn't mining gas to gas
-                    const Unit* target = observation->GetUnit(worker->orders.front().target_unit_tag);
-                    if (target == nullptr) {
-                        continue;
-                    }
-                    if (target->unit_type != vespene_building_type) {
-                        //This should allow them to be picked up by mineidleworkers()
-                        MineIdleWorkers(worker, worker_gather_command, vespene_building_type);
-                        return;
-                    }
-                }
-            }
-        }
-    }
-}
-
-// MOSTLY COPIED
-// Mine the nearest mineral to Town hall.
-// If we don't do this, probes may mine from other patches if they stray too far from the base after building.
-void BetaStar::MineIdleWorkers(const Unit* worker, AbilityID worker_gather_command, UnitTypeID vespene_building_type) {
-    const ObservationInterface* observation = Observation();
-    Units bases = observation->GetUnits(Unit::Alliance::Self, IsUnit(m_base_typeid));
-    Units geysers = observation->GetUnits(Unit::Alliance::Self, IsUnit(vespene_building_type));
-
-    const Unit* valid_mineral_patch = nullptr;
-
-    if (bases.empty()) {
-        return;
-    }
-
-    //Search for a base that is missing workers.
-    for (const auto& base : bases) {
-        //If we have already mined out here skip the base.
-        if (base->ideal_harvesters == 0 || base->build_progress != 1) {
-            continue;
-        }
-        if (base->assigned_harvesters < base->ideal_harvesters) {
-            valid_mineral_patch = FindNearestNeutralUnit(base->pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
-            Actions()->UnitCommand(worker, worker_gather_command, valid_mineral_patch);
-            return;
-        }
-    }
-
-    for (const auto& geyser : geysers) {
-        if (geyser->assigned_harvesters < geyser->ideal_harvesters) {
-            Actions()->UnitCommand(worker, worker_gather_command, geyser);
-            return;
-        }
-    }
-
-    if (!worker->orders.empty()) {
-        return;
-    }
-
-    //If all workers are spots are filled just go to any base.
-    const Unit* random_base = GetRandomEntry(bases);
-    valid_mineral_patch = FindNearestNeutralUnit(random_base->pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
-    Actions()->UnitCommand(worker, worker_gather_command, valid_mineral_patch);
 }
 
 // MOSTLY COPIED
@@ -625,6 +494,15 @@ bool BetaStar::TrainUnit(UnitTypeID unitType)
     const UnitTypeID unitBuilder = GetUnitBuilder(unitType);
 
     Units buildings = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(unitBuilder));
+    // warpgates = gateways, so we can build at them too
+    if (unitBuilder == UNIT_TYPEID::PROTOSS_GATEWAY)
+    {
+        Units warpgates = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(UNIT_TYPEID::PROTOSS_WARPGATE));
+        if (!warpgates.empty())
+        {
+            buildings.insert(buildings.end(), warpgates.begin(), warpgates.end());
+        }
+    }
 
     // we don't have any building that can build this unit
     if (buildings.size() == 0)
@@ -647,8 +525,8 @@ bool BetaStar::TrainUnit(const Unit *building, UnitTypeID unitType)
         return false;
     }
 
-    // if our building isn't powered, it can't build units
-    if (!building->is_powered)
+    // only the nexus can build units without power
+    if (building->unit_type != UNIT_TYPEID::PROTOSS_NEXUS && !building->is_powered)
     {
         return false;
     }
@@ -658,7 +536,16 @@ bool BetaStar::TrainUnit(const Unit *building, UnitTypeID unitType)
     // building at a warpgate instead of a gateway (warp close to warpgate)
     if (unitBuilder == UNIT_TYPEID::PROTOSS_GATEWAY && building->unit_type == UNIT_TYPEID::PROTOSS_WARPGATE)
     {
-        WarpUnit(building, building->pos, unitType);
+        // if we're attacking, warp as close to the enemy as possible
+        if (m_attacking)
+        {
+            WarpUnit(building, m_enemy_base_pos, unitType);
+        }
+        // if we're building up forces, stick near production building
+        else
+        {
+            WarpUnit(building, building->pos, unitType);
+        }     
     }
     // normal training process
     else if (unitBuilder == building->unit_type)
@@ -710,7 +597,7 @@ bool BetaStar::WarpUnit(const Unit *building, Point2D warpLocation, UnitTypeID u
         return false;
     }
 
-    // if our building isn't powered, it can't build units
+    // if our warpgate isn't powered, it can't build units
     if (!building->is_powered)
     {
         return false;
@@ -726,7 +613,20 @@ bool BetaStar::WarpUnit(const Unit *building, Point2D warpLocation, UnitTypeID u
         return false;
     }
 
-    const PowerSource &targetPowerSource = powerSources[0];
+    // find the closest power source to the specified point to warp in around
+    size_t minIndex = 0;
+    float minDist = DistanceSquared2D(warpLocation, powerSources[0].position);
+    for (size_t i = 1; i < powerSources.size(); ++i)
+    {
+        float testDist = DistanceSquared2D(warpLocation, powerSources[i].position);
+        if (testDist < minDist)
+        {
+            minDist = testDist;
+            minIndex = i;
+        }
+    }
+
+    const PowerSource &targetPowerSource = powerSources[minIndex];
     float randomX = GetRandomScalar();
     float randomY = GetRandomScalar();
     Point2D finalWarpPoint = Point2D(targetPowerSource.position.x + randomX * targetPowerSource.radius, targetPowerSource.position.y + randomY * targetPowerSource.radius);
@@ -750,7 +650,7 @@ bool BetaStar::WarpUnit(const Unit *building, Point2D warpLocation, UnitTypeID u
     return false;
 }
 
-size_t BetaStar::TrainUnitMultiple(UnitTypeID unitType)
+size_t BetaStar::MassTrainUnit(UnitTypeID unitType)
 {
     UnitTypeID unitBuilder = GetUnitBuilder(unitType);
 
@@ -759,14 +659,12 @@ size_t BetaStar::TrainUnitMultiple(UnitTypeID unitType)
     if (unitBuilder == UNIT_TYPEID::PROTOSS_GATEWAY)
     {
         Units warpgates = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(UNIT_TYPEID::PROTOSS_WARPGATE));
-        buildings.insert(buildings.end(), warpgates.begin(), buildings.end());
+        if (!warpgates.empty())
+        {
+            buildings.insert(buildings.end(), warpgates.begin(), warpgates.end());
+        }
     }
 
-    return TrainUnitMultiple(buildings, unitType);
-}
-
-size_t BetaStar::TrainUnitMultiple(const Units &buildings, UnitTypeID unitType)
-{
     size_t buildCount = 0;
     for (const Unit* building : buildings)
     {
@@ -777,14 +675,6 @@ size_t BetaStar::TrainUnitMultiple(const Units &buildings, UnitTypeID unitType)
     }
 
     return buildCount;
-}
-
-void BetaStar::TrainWorkers() {
-    for (const auto& base : FriendlyUnitsOfType(m_base_typeid)) {
-        if (Observation()->GetMinerals() >= 50 && base->orders.size() == 0 && std::max(0, Observation()->GetFoodCap() - Observation()->GetFoodUsed()) != 0 && NeedWorkers()) {
-            Actions()->UnitCommand(base, m_worker_train_abilityid);
-        }
-    }
 }
 
 void BetaStar::TryBuildStructureNearPylon(AbilityID ability_type_for_structure, UnitTypeID unit_type = UNIT_TYPEID::PROTOSS_PROBE) {
@@ -865,44 +755,6 @@ void BetaStar::TryResearchUpgrade(AbilityID upgrade_abilityid, UnitTypeID buildi
             return;
         }
     }
-}
-
-bool BetaStar::TryWarpInUnit(AbilityID ability_type_for_unit)
-{
-    const ObservationInterface* observation = Observation();
-    const GameInfo game_info = observation->GetGameInfo();
-
-    std::vector<PowerSource> power_sources = observation->GetPowerSources();
-    Units warpgates = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_WARPGATE);
-
-    if (power_sources.empty()) {
-        return false;
-    }
-
-    const PowerSource& random_power_source = GetRandomEntry(power_sources);
-    float radius = random_power_source.radius;
-    float rx = GetRandomScalar();
-    float ry = GetRandomScalar();
-    Point2D build_location = Point2D(random_power_source.position.x + rx * radius, random_power_source.position.y + ry * radius);
-
-    // If the warp location is walled off, don't warp there.
-    // We check this to see if there is pathing from the build location to the center of the map
-    if (Query()->PathingDistance(build_location, Point2D(game_info.playable_max.x / 2, game_info.playable_max.y / 2)) < .01f) {
-        return false;
-    }
-
-    for (const auto& warpgate : warpgates) {
-        if (warpgate->build_progress == 1) {
-            AvailableAbilities abilities = Query()->GetAbilitiesForUnit(warpgate);
-            for (const auto& ability : abilities.abilities) {
-                if (ability.ability_id == ability_type_for_unit) {
-                    Actions()->UnitCommand(warpgate, ability_type_for_unit, build_location);
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
 }
 
 void BetaStar::ClearArmyRatios()

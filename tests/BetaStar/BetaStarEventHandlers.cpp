@@ -32,6 +32,8 @@ void BetaStar::OnStep() {
 
     OnStepBuildArmy();
 
+    //TrainBalancedArmy();
+
     OnStepBuildOrder();
 
     OnStepManageArmy();
@@ -83,6 +85,10 @@ void BetaStar::OnGameStart()
         last_location = closest_start_location;
         enemy_start_locations.erase(std::find(enemy_start_locations.begin(), enemy_start_locations.end(), closest_start_location));
     }
+
+    // Testing basic army ratio (should be set dynamically based on intelligence about enemy)
+    army_ratios[UNIT_TYPEID::PROTOSS_ZEALOT] = 0.33f;
+    army_ratios[UNIT_TYPEID::PROTOSS_STALKER] = 0.66f;
 }
 
 // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
