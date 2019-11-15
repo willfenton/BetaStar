@@ -18,6 +18,13 @@ void BetaStar::GatherIntelligence(const Unit *unit)
         std::cout << "Has Cloaked" << std::endl;
     }
 
+    // detect detector units (if they don't have any, we can lean into cloaked units)
+    if (!has_detection && unit->detect_range > 0.1f)
+    {
+        has_detection = true;
+        std::cout << "Has Detection" << std::endl;
+    }
+
     // detect a rush and/or other strats that pose threat to our main base
     // using 50.0f since that covers the main base and can see into the closest expansion
     if (Distance2D(m_starting_pos, unit->pos) <= 50.0f)

@@ -2,12 +2,6 @@
 
 using namespace sc2;
 
-
-// return the number of friendly units of type unit_type
-const size_t BetaStar::CountUnitType(UnitTypeID unit_type) const {
-    return FriendlyUnitsOfType(unit_type).size();
-}
-
 // returns false if all bases and vespene buildings are worker capped, else true
 bool BetaStar::NeedWorkers() {
     int num_workers = 0;
@@ -525,6 +519,28 @@ AbilityID BetaStar::GetUnitBuildAbility(UnitTypeID unitToBuild)
     }
 }
 
+AbilityID BetaStar::GetUnitWarpAbility(UnitTypeID unitToWarp)
+{
+    switch (unitToWarp.ToType())
+    {
+        case UNIT_TYPEID::PROTOSS_ZEALOT:
+            return ABILITY_ID::TRAINWARP_ZEALOT;
+        case UNIT_TYPEID::PROTOSS_SENTRY:
+            return ABILITY_ID::TRAINWARP_SENTRY;
+        case UNIT_TYPEID::PROTOSS_STALKER:
+            return ABILITY_ID::TRAINWARP_STALKER;
+        case UNIT_TYPEID::PROTOSS_ADEPT:
+            return ABILITY_ID::TRAINWARP_ADEPT;
+        case UNIT_TYPEID::PROTOSS_HIGHTEMPLAR:
+            return ABILITY_ID::TRAINWARP_HIGHTEMPLAR;
+        case UNIT_TYPEID::PROTOSS_DARKTEMPLAR:
+            return ABILITY_ID::TRAINWARP_DARKTEMPLAR;
+        // unit cannot be warped
+        default:
+            return ABILITY_ID::INVALID;
+    }
+}
+
 bool BetaStar::IsStructure(UnitTypeID unitType)
 {
     switch (unitType.ToType())
@@ -606,7 +622,9 @@ bool BetaStar::IsStructure(UnitTypeID unitType)
 
 bool BetaStar::TrainUnit(UnitTypeID unitType)
 {
-    Units buildings = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(GetUnitBuilder(unitType)));
+    const UnitTypeID unitBuilder = GetUnitBuilder(unitType);
+
+    Units buildings = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(unitBuilder));
 
     // we don't have any building that can build this unit
     if (buildings.size() == 0)
@@ -614,52 +632,151 @@ bool BetaStar::TrainUnit(UnitTypeID unitType)
         return false;
     }
 
-    // get random building from vector (slight bias to lower indeces) and build unit there
-    Actions()->UnitCommand(buildings[rand() % buildings.size()], GetUnitBuildAbility(unitType));
-
-    return true;
+    // get random building from vector and build unit there
+    return TrainUnit(GetRandomEntry(buildings), unitType);
 }
 
 bool BetaStar::TrainUnit(const Unit *building, UnitTypeID unitType)
 {
-    // We've asked a building that can't build something to build it. Exit.
-    if (GetUnitBuilder(unitType) != building->unit_type)
+    // note that all TrainUnit variants resolve themselves here, so this is where we can do all of our
+    // checks and handle edge-cases
+
+    // if a building isn't finished, it can't build units
+    if (building->build_progress < 1.0f)
     {
         return false;
     }
 
-    // May need to queue some commands? 
-    Actions()->UnitCommand(building, GetUnitBuildAbility(unitType));
+    // if our building isn't powered, it can't build units
+    if (!building->is_powered)
+    {
+        return false;
+    }
 
-    return true;
+    UnitTypeID unitBuilder = GetUnitBuilder(unitType);
+
+    // building at a warpgate instead of a gateway (warp close to warpgate)
+    if (unitBuilder == UNIT_TYPEID::PROTOSS_GATEWAY && building->unit_type == UNIT_TYPEID::PROTOSS_WARPGATE)
+    {
+        WarpUnit(building, building->pos, unitType);
+    }
+    // normal training process
+    else if (unitBuilder == building->unit_type)
+    {
+        AbilityID buildAbility = GetUnitBuildAbility(unitType);
+        for (UnitOrder order : building->orders)
+        {
+            // if we have this unit queued to build already, don't queue another one
+            if (order.ability_id == buildAbility)
+            {
+                return false;
+            }
+        }
+
+        AvailableAbilities abilities = Query()->GetAbilitiesForUnit(building);
+        for (const auto &ability : abilities.abilities)
+        {
+            if (ability.ability_id == buildAbility)
+            {
+                Actions()->UnitCommand(building, buildAbility);
+                return true;
+            }
+        }
+    }
+
+    // couldn't build that unit at that building - probably didn't have the resources or something's on cooldown
+    return false;
+}
+
+bool BetaStar::WarpUnit(Point2D warpLocation, UnitTypeID unitType)
+{
+    Units warpgates = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_WARPGATE);
+
+    // we don't have any warpgates
+    if (warpgates.size() == 0)
+    {
+        return false;
+    }
+
+    // get random warpgate and warp unit in with that warpgate
+    return WarpUnit(GetRandomEntry(warpgates), warpLocation, unitType);
+}
+
+bool BetaStar::WarpUnit(const Unit *building, Point2D warpLocation, UnitTypeID unitType)
+{
+    // if a building isn't finished, it can't build units
+    if (building->build_progress < 1.0f)
+    {
+        return false;
+    }
+
+    // if our building isn't powered, it can't build units
+    if (!building->is_powered)
+    {
+        return false;
+    }
+
+    const ObservationInterface* observation = Observation();
+    const GameInfo gameInfo = observation->GetGameInfo();
+
+    std::vector<PowerSource> powerSources = observation->GetPowerSources();
+
+    if (powerSources.empty())
+    {
+        return false;
+    }
+
+    const PowerSource &targetPowerSource = powerSources[0];
+    float randomX = GetRandomScalar();
+    float randomY = GetRandomScalar();
+    Point2D finalWarpPoint = Point2D(targetPowerSource.position.x + randomX * targetPowerSource.radius, targetPowerSource.position.y + randomY * targetPowerSource.radius);
+
+    // If the warp location is walled off, don't warp there.
+    // We check this to see if there is pathing from the build location to the center of the map
+    if (Query()->PathingDistance(finalWarpPoint, Point2D(gameInfo.playable_max.x / 2, gameInfo.playable_max.y / 2)) < .01f) {
+        return false;
+    }
+
+    AbilityID warpAbility = GetUnitWarpAbility(unitType);
+    AvailableAbilities abilities = Query()->GetAbilitiesForUnit(building);
+    for (const auto& ability : abilities.abilities) {
+        if (ability.ability_id == warpAbility) {
+            Actions()->UnitCommand(building, warpAbility, finalWarpPoint);
+            return true;
+        }
+    }
+
+    // failed to warp in the unit - probably on cooldown
+    return false;
 }
 
 size_t BetaStar::TrainUnitMultiple(UnitTypeID unitType)
 {
-    Units buildings = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(GetUnitBuilder(unitType)));
+    UnitTypeID unitBuilder = GetUnitBuilder(unitType);
 
-    // May need to queue some commands? 
-    Actions()->UnitCommand(buildings, GetUnitBuildAbility(unitType));
+    Units buildings = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(unitBuilder));
+    // warpgates = gateways, so build for them too
+    if (unitBuilder == UNIT_TYPEID::PROTOSS_GATEWAY)
+    {
+        Units warpgates = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(UNIT_TYPEID::PROTOSS_WARPGATE));
+        buildings.insert(buildings.end(), warpgates.begin(), buildings.end());
+    }
 
-    return buildings.size();
+    return TrainUnitMultiple(buildings, unitType);
 }
 
 size_t BetaStar::TrainUnitMultiple(const Units &buildings, UnitTypeID unitType)
 {
+    size_t buildCount = 0;
     for (const Unit* building : buildings)
     {
-        // We've asked a building that can't build something to build it. Exit.
-        // Possible case of non-homogenous selection of buildings
-        if (GetUnitBuilder(unitType) != building->unit_type)
+        if (TrainUnit(building, unitType))
         {
-            return 0;
+            ++buildCount;
         }
     }
 
-    // May need to queue some commands? 
-    Actions()->UnitCommand(buildings, GetUnitBuildAbility(unitType));
-
-    return buildings.size();
+    return buildCount;
 }
 
 void BetaStar::TrainWorkers() {
@@ -791,4 +908,56 @@ bool BetaStar::TryWarpInUnit(AbilityID ability_type_for_unit)
 void BetaStar::ClearArmyRatios()
 {
     army_ratios.clear();
+}
+
+size_t BetaStar::CountUnitType(UnitTypeID unitType, bool includeIncomplete)
+{
+    const ObservationInterface *observation = Observation();
+
+    const Units allUnits = observation->GetUnits(Unit::Alliance::Self, IsUnit(unitType));
+
+    size_t count = 0;
+
+    // count structures differently than units
+    if (IsStructure(unitType))
+    {
+        // buildings under construction will be included in allUnits
+        if (includeIncomplete)
+        {
+            count = allUnits.size();
+        }
+        // only count buildings that are fully constructed
+        else
+        {
+            for (const Unit *building : allUnits)
+            {
+                if (building->build_progress == 1.0f)
+                {
+                    ++count;
+                }
+            }
+        }
+    }
+    else
+    {
+        count = allUnits.size();
+        // units in the queue are not included in allUnits
+        if (includeIncomplete)
+        {
+            const Units trainingUnits = observation->GetUnits(Unit::Alliance::Self, IsUnit(GetUnitBuilder(unitType)));
+            for (const Unit *trainer : trainingUnits)
+            {
+                AbilityID buildAbility = GetUnitBuildAbility(unitType);
+                for (UnitOrder order : trainer->orders)
+                {
+                    if (order.ability_id == buildAbility)
+                    {
+                        ++count;
+                    }
+                }
+            }
+        }
+    }
+
+    return count;
 }

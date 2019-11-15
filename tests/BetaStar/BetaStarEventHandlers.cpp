@@ -62,14 +62,14 @@ void BetaStar::OnGameStart()
 
     // this is a list of points where the enemy could have started
     std::vector<Point2D> enemy_start_locations = game_info.enemy_start_locations;
-    int size = enemy_start_locations.size();
+    size_t size = enemy_start_locations.size();
 
     // command the scout probe to visit all possible enemy starting locations
     // this big block of code just makes the probe visit them in optimal order
     // after this, the scouting probe will have move orders queued for each enemy start location
     Actions()->UnitCommand(m_initial_scouting_probe, ABILITY_ID::MOVE, m_initial_scouting_probe->pos);
     Point2D last_location = m_initial_scouting_probe->pos;
-    for (int i = 0; i < size; ++i) {
+    for (size_t i = 0; i < size; ++i) {
         Point2D closest_start_location;
         float closest_distance = std::numeric_limits<float>::max();
         for (const auto& enemy_start_location : enemy_start_locations) {

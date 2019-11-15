@@ -66,8 +66,6 @@ private:
 
     /* UTILITY FUNCTIONS */
 
-    const size_t CountUnitType(UnitTypeID unit_type) const;
-
     bool TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type);
 
     bool TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type, Tag location_tag);
@@ -105,6 +103,9 @@ private:
     // Returns the AbilityID of the ability a builder will need to use to build the specified unit
     AbilityID GetUnitBuildAbility(UnitTypeID unitToBuild);
 
+    // Returns the AbilityID of the ability to warp in the specified unit at a warp gate
+    AbilityID GetUnitWarpAbility(UnitTypeID unitToWarp);
+
     // Returns true if unitType is a structure
     bool IsStructure(UnitTypeID unitType);
 
@@ -124,11 +125,21 @@ private:
     // Returns number of units trained this way
     size_t TrainUnitMultiple(const Units &buildings, UnitTypeID unitType);
 
+    // Attempts to warp a unit in beside the power source closest to the requested build location
+    bool WarpUnit(Point2D warpLocation, UnitTypeID unitType);
+
+    // Attempts to warp a unit in beside the power source closest to the requested build location from the requested building
+    bool WarpUnit(const Unit *building, Point2D warpLocation, UnitTypeID unitType);
+
     // Tries to train a balanced army based on private member unit ratios
     void TrainBalancedArmy();
 
     // Sets all unit ratios to 0.0f - nothing will be built after this is called unless ratios are set
     void ClearArmyRatios();
+
+    // Counts all units of specified type
+    // If includeIncomplete = true (default) buildings under construction and units in the production queue are counted
+    size_t BetaStar::CountUnitType(UnitTypeID unitType, bool includeIncomplete = true);
 
     void TryResearchUpgrade(AbilityID upgrade_abilityid, UnitTypeID building_type);
 
@@ -202,6 +213,7 @@ private:
     // info about enemy
     bool has_flying = false;
     bool has_cloaked = false;
+    bool has_detection = false;
     bool building_near_our_base = false;
     bool rush_detected = false;
     uint32_t last_detected_at_base_loop;
