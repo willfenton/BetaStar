@@ -17,6 +17,14 @@ using namespace sc2;
 */
 class BetaStar : public Agent {
 public:
+    // Enumeration of our possible strategies
+    enum Strategy
+    {
+        None,
+        Blink_Stalker_Rush,
+        Cannon_Rush
+    };
+
     // this function runs at the start of the game
     virtual void OnGameStart() final;
 
@@ -127,6 +135,9 @@ private:
 
     void TryResearchUpgrade(AbilityID upgrade_abilityid, UnitTypeID building_type);
 
+    // Changes the current global strategy and makes adjustments accordingly
+    void SetStrategy(Strategy newStrategy);
+
 
     /* MEMBER DATA */
 
@@ -226,4 +237,6 @@ private:
         UNIT_TYPEID::PROTOSS_WARPPRISM,
         UNIT_TYPEID::PROTOSS_ZEALOT
     };
+
+    Strategy m_current_strategy;
 };
