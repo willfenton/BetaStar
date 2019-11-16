@@ -145,6 +145,18 @@ private:
     // Attempts to issue command with point parameter to unit. Returns true if successful.
     bool TryIssueCommand(const Unit *unit, AbilityID ability, Point2D point);
 
+    // Returns the closest unit in units to position
+    const Unit* GetClosestUnit(Point2D position, const Units units);
+
+    /* COMBAT FUNCTIONS */
+
+    // Macro actions to defend our base. Call first and override with micro.
+    void BaseDefenseMacro(const Units units);
+    // Macro actions to attack enemy bases. Call first and override with micro.
+    void EnemyBaseAttackMacro(const Units units);
+    // Automatically performs blink micro on any stalkers that need it
+    void StalkerBlinkMicro();
+
     /* MEMBER DATA */
 
     // position of our starting base
@@ -186,6 +198,8 @@ private:
     bool m_blink_researched = false;
 
     bool m_attacking = false;
+    bool m_searching_new_enemy_base = false;
+    size_t m_current_search_index = 0;
 
     // how many bases to build (max)
     const int m_max_bases = 3;

@@ -835,3 +835,27 @@ bool BetaStar::TryIssueCommand(const Unit *unit, AbilityID ability, Point2D poin
     }
     return false;
 }
+
+const Unit* BetaStar::GetClosestUnit(Point2D position, const Units units)
+{
+    // empty collections of units should never be passed
+    if (units.empty())
+    {
+        return nullptr;
+    }
+
+    size_t minIndex = 0;
+    float minDist = DistanceSquared2D(position, units[minIndex]->pos);
+
+    for (size_t i = 1; i < units.size(); ++i)
+    {
+        float testDist = DistanceSquared2D(position, units[i]->pos);
+        if (testDist < minDist)
+        {
+            minDist = testDist;
+            minIndex = i;
+        }
+    }
+
+    return units[minIndex];
+}

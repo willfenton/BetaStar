@@ -668,85 +668,38 @@ void BetaStar::OnStepBuildArmy()
 
 void BetaStar::OnStepManageArmy()
 {
-    const ObservationInterface* observation = Observation();
+    // Switch to offensive mode. Trigger will be different for each strategy.
+    // TODO: Turn off offensive mode if it's going to lose us the match. 
+    switch (m_current_strategy)
+    {
+        case Strategy::Blink_Stalker_Rush:
+            if (!m_attacking && m_blink_researched && m_enemy_base_scouted && Observation()->GetArmyCount() >= 12) {
+                m_attacking = true;
+            }
+            break;
+        default:
+            if (!m_attacking && m_blink_researched && m_enemy_base_scouted && Observation()->GetArmyCount() >= 20) {
+                m_attacking = true;
+            }
+            break;
+    }
 
-    Units zealots = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_ZEALOT);
-    Units stalkers = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_STALKER);
-
-    Units enemy_units = observation->GetUnits(Unit::Alliance::Enemy);
-
-    // base defense code
+    // defend our base
     if (!m_attacking) {
-        for (const auto& unit : enemy_units) {
-            if (unit->display_type == Unit::DisplayType::Visible) {
-                float distance = DistanceSquared2D(m_starting_pos, unit->pos);
-                if (distance < 2500) {
-                    for (const auto& stalker : stalkers) {
-                        Actions()->UnitCommand(stalker, ABILITY_ID::ATTACK, unit->pos);
-                    }
-                    break;
-                }
-            }
+        for (UNIT_TYPEID unitType : managed_unit_types)
+        {
+            BaseDefenseMacro(FriendlyUnitsOfType(unitType));
         }
-        for (const auto& stalker : stalkers) {
-            float distance_from_base = DistanceSquared2D(stalker->pos, m_starting_pos);
-            if (!m_attacking && distance_from_base > 2500) {
-                Actions()->UnitCommand(stalker, ABILITY_ID::MOVE, m_starting_pos);
-            }
-            else if (stalker->orders.size() == 0 && distance_from_base >= 500 && distance_from_base <= 2500) {
-                Actions()->UnitCommand(stalker, ABILITY_ID::MOVE, m_starting_pos);
-            }
+    }
+    // attack enemy base
+    else
+    {
+        for (UNIT_TYPEID unitType : managed_unit_types)
+        {
+            EnemyBaseAttackMacro(FriendlyUnitsOfType(unitType));
         }
     }
 
-    if (!m_attacking && m_blink_researched && m_enemy_base_scouted && (zealots.size() + stalkers.size()) >= 12) {
-        m_attacking = true;
-    }
-
-    if (m_attacking) {
-        for (const auto& zealot : zealots) {
-            if (zealot->orders.empty()) {
-                if (enemy_units.size() == 0) {
-                    Actions()->UnitCommand(zealot, ABILITY_ID::ATTACK, m_enemy_base_pos);
-                }
-                else {
-                    Actions()->UnitCommand(zealot, ABILITY_ID::ATTACK, enemy_units.front()->pos);
-                }
-            }
-        }
-        for (const auto& stalker : stalkers) {
-            if (stalker->orders.empty()) {
-                if (enemy_units.size() == 0) {
-                    Actions()->UnitCommand(stalker, ABILITY_ID::ATTACK, m_enemy_base_pos);
-                }
-                else {
-                    Actions()->UnitCommand(stalker, ABILITY_ID::ATTACK, enemy_units.front()->pos);
-                }
-            }
-        }
-    }
-
-    for (const auto& stalker : stalkers) {
-        if (stalker->shield == 0 && stalker->health < stalker->health_max) {
-            if (m_blink_researched) {
-                const Unit* target_unit = observation->GetUnit(stalker->engaged_target_tag);
-                Point2D blink_location = m_starting_pos;
-                if (stalker->shield < 1) {
-                    if (!stalker->orders.empty()) {
-                        if (observation->GetUnit(stalker->engaged_target_tag) != nullptr) {
-                            Vector2D diff = stalker->pos - target_unit->pos;
-                            Normalize2D(diff);
-                            blink_location = stalker->pos + diff * 7.0f;
-                        }
-                        else {
-                            Vector2D diff = stalker->pos - m_starting_pos;
-                            Normalize2D(diff);
-                            blink_location = stalker->pos - diff * 7.0f;
-                        }
-                        Actions()->UnitCommand(stalker, ABILITY_ID::EFFECT_BLINK, blink_location);
-                    }
-                }
-            }
-        }
-    }
+    // This micro is always valid to perform
+    StalkerBlinkMicro();
 }

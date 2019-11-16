@@ -82,6 +82,7 @@ void BetaStar::TrainBalancedArmy()
     }
 
     for (UNIT_TYPEID tID : managed_unit_types)
+
     {
         // always be building toward a future army so that armies don't get stuck at perfect ratios with a small number of units
         if (CountUnitType(tID) < ceil(army_ratios[tID] * (modifiedArmyCount + 1)))
@@ -90,6 +91,100 @@ void BetaStar::TrainBalancedArmy()
             if (TrainUnit(tID))
             {
                 ++modifiedArmyCount;
+            }
+        }
+    }
+}
+
+void BetaStar::BaseDefenseMacro(const Units units)
+{
+    Units enemy_units = Observation()->GetUnits(Unit::Alliance::Enemy);
+
+    // if there's an enemy close, attack it
+    for (const auto& unit : enemy_units) {
+        if (unit->display_type == Unit::DisplayType::Visible) {
+            float distance = DistanceSquared2D(m_starting_pos, unit->pos);
+            if (distance < 2500) {
+                Actions()->UnitCommand(units, ABILITY_ID::ATTACK, unit->pos);
+                break;
+            }
+        }
+    }
+
+    // TODO: Better clustering/positioning within base when idle
+    for (const auto& unit : units) {
+        float distance_from_base = DistanceSquared2D(unit->pos, m_starting_pos);
+        if (!m_attacking && distance_from_base > 2500) {
+            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_starting_pos);
+        }
+        else if (unit->orders.size() == 0 && distance_from_base >= 500 && distance_from_base <= 2500) {
+            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_starting_pos);
+        }
+    }
+}
+
+void BetaStar::EnemyBaseAttackMacro(const Units units)
+{
+    Units enemy_units = Observation()->GetUnits(Unit::Alliance::Enemy);
+
+    for (const auto& unit : units) {
+        if (enemy_units.size() == 0) {
+            // if we're on top of the old base and can't find units, search for another base
+            if (DistanceSquared2D(unit->pos, m_enemy_base_pos) < 100)
+            {
+                m_searching_new_enemy_base = true;
+            }
+
+            if (m_searching_new_enemy_base)
+            {
+                // we've reached a new location and there isn't anything here - go to the next one
+                if (DistanceSquared2D(unit->pos, m_expansion_locations[m_current_search_index]) < 100)
+                {
+                    m_current_search_index = (m_current_search_index + 1) % m_expansion_locations.size();
+                }
+                // continue the march to the new location to check
+                else
+                {
+                    Actions()->UnitCommand(unit, ABILITY_ID::ATTACK, m_expansion_locations[m_current_search_index]);
+                }
+            }
+            // still think we can march to enemy base to wipe them out - continue going there
+            else
+            {
+                Actions()->UnitCommand(unit, ABILITY_ID::ATTACK, m_enemy_base_pos);
+            }
+        }
+        else {
+            // TODO: Replace with targeting micro
+            Actions()->UnitCommand(unit, ABILITY_ID::ATTACK, GetClosestUnit(unit->pos, enemy_units)->pos);
+        }
+    }
+}
+
+void BetaStar::StalkerBlinkMicro()
+{
+    Units stalkers = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_STALKER);
+
+    for (const auto& stalker : stalkers) {
+        if (stalker->shield == 0 && stalker->health < stalker->health_max) {
+            if (m_blink_researched) {
+                const Unit* target_unit = Observation()->GetUnit(stalker->engaged_target_tag);
+                Point2D blink_location = m_starting_pos;
+                if (stalker->shield < 1) {
+                    if (!stalker->orders.empty()) {
+                        if (Observation()->GetUnit(stalker->engaged_target_tag) != nullptr) {
+                            Vector2D diff = stalker->pos - target_unit->pos;
+                            Normalize2D(diff);
+                            blink_location = stalker->pos + diff * 7.0f;
+                        }
+                        else {
+                            Vector2D diff = stalker->pos - m_starting_pos;
+                            Normalize2D(diff);
+                            blink_location = stalker->pos - diff * 7.0f;
+                        }
+                        Actions()->UnitCommand(stalker, ABILITY_ID::EFFECT_BLINK, blink_location);
+                    }
+                }
             }
         }
     }
