@@ -157,7 +157,7 @@ void BetaStar::OnStepBuildPylons()
         pylon_pos = Point2D((worker_to_build->pos.x + (rx * 10.0f)), (worker_to_build->pos.y + (ry * 10.0f)));
     }
 
-    // build a pylon
+    // build a pylon (no need for additional checks since we've already checked to make sure we have the minerals)
     Actions()->UnitCommand(worker_to_build, m_supply_building_abilityid, pylon_pos);
 }
 
@@ -265,7 +265,7 @@ void BetaStar::OnStepBuildGas()
         exit(1);
     }
 
-    // build gas
+    // build gas (no need for additional checks since we've already checked to make sure we have the minerals)
     Actions()->UnitCommand(closest_worker, m_gas_building_abilityid, closest_geyser);
 }
 
@@ -358,7 +358,7 @@ void BetaStar::OnStepExpand()
         }
     }
 
-    // order worker to build the base
+    // order worker to build the base (no need for additional checks since we've already made sure we have the minerals)
     Actions()->UnitCommand(closest_worker, m_base_building_abilityid, closest_expansion);
 }
 
@@ -554,7 +554,8 @@ void BetaStar::OnStepResearchUpgrades() {
                     auto buffs = cybernetics_core->buffs;
                     if (std::find(buffs.begin(), buffs.end(), BuffID(281)) == buffs.end()) {
                         for (const auto& base : bases) {
-                            Actions()->UnitCommand(base, AbilityID(3755), cybernetics_core);
+                            // No errors when attempting without energy
+                            TryIssueCommand(base, AbilityID(3755), cybernetics_core);
                             break;
                         }
                     }
@@ -574,7 +575,8 @@ void BetaStar::OnStepResearchUpgrades() {
                     auto buffs = twilight_council->buffs;
                     if (std::find(buffs.begin(), buffs.end(), BuffID(281)) == buffs.end()) {
                         for (const auto& base : bases) {
-                            Actions()->UnitCommand(base, AbilityID(3755), twilight_council);
+                            // No errors when attempting without energy
+                            TryIssueCommand(base, AbilityID(3755), twilight_council);
                             break;
                         }
                     }

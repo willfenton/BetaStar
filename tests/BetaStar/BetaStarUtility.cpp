@@ -47,9 +47,7 @@ bool BetaStar::TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeI
     float rx = GetRandomScalar();
     float ry = GetRandomScalar();
 
-    Actions()->UnitCommand(unit_to_build, ability_type_for_structure, sc2::Point2D(unit_to_build->pos.x + rx * 15.0f, unit_to_build->pos.y + ry * 15.0f));
-
-    return true;
+    return TryIssueCommand(unit_to_build, ability_type_for_structure, Point2D(unit_to_build->pos.x + rx * 15.0f, unit_to_build->pos.y + ry * 15.0f));
 }
 
 // MOSTLY COPIED
@@ -79,38 +77,10 @@ bool BetaStar::TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeI
 
     // Check to see if unit can build there
     if (Query()->Placement(ability_type_for_structure, target->pos)) {
-        Actions()->UnitCommand(unit, ability_type_for_structure, target);
-        return true;
+        // attempt to issue the build command in the valid location
+        return TryIssueCommand(unit, ability_type_for_structure, target);
     }
     return false;
-}
-
-// MOSTLY COPIED
-// Tries to build a geyser for a base
-bool BetaStar::TryBuildGas(Point2D base_location) {
-
-    const ObservationInterface* observation = Observation();
-
-    Units geysers = observation->GetUnits(Unit::Alliance::Neutral, IsUnit(UNIT_TYPEID::NEUTRAL_VESPENEGEYSER));
-
-    //only search within this radius
-    float minimum_distance = 225.0f;
-    Tag closestGeyser = 0;
-    for (const auto& geyser : geysers) {
-        float current_distance = DistanceSquared2D(base_location, geyser->pos);
-        if (current_distance < minimum_distance) {
-            if (Query()->Placement(m_gas_building_abilityid, geyser->pos)) {
-                minimum_distance = current_distance;
-                closestGeyser = geyser->tag;
-            }
-        }
-    }
-
-    // In the case where there are no more available geysers nearby
-    if (closestGeyser == 0) {
-        return false;
-    }
-    return TryBuildStructure(m_gas_building_abilityid, m_worker_typeid, closestGeyser);
 }
 
 // returns the nearest neutral unit of type target_unit_type
@@ -197,6 +167,7 @@ bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
 
     m_building_nexus = true;
 
+    // no need to wrap in AvailableAbilities query since we've checked mineral pre-reqs already
     Actions()->UnitCommand(unit_to_build, build_ability, closest_expansion);
 
     return true;
@@ -539,12 +510,12 @@ bool BetaStar::TrainUnit(const Unit *building, UnitTypeID unitType)
         // if we're attacking, warp as close to the enemy as possible
         if (m_attacking)
         {
-            WarpUnit(building, m_enemy_base_pos, unitType);
+            return WarpUnit(building, m_enemy_base_pos, unitType);
         }
         // if we're building up forces, stick near production building
         else
         {
-            WarpUnit(building, building->pos, unitType);
+            return WarpUnit(building, building->pos, unitType);
         }     
     }
     // normal training process
@@ -560,18 +531,11 @@ bool BetaStar::TrainUnit(const Unit *building, UnitTypeID unitType)
             }
         }
 
-        AvailableAbilities abilities = Query()->GetAbilitiesForUnit(building);
-        for (const auto &ability : abilities.abilities)
-        {
-            if (ability.ability_id == buildAbility)
-            {
-                Actions()->UnitCommand(building, buildAbility);
-                return true;
-            }
-        }
+        // Return true if training succeeds, false otherwise
+        return TryIssueCommand(building, buildAbility);
     }
 
-    // couldn't build that unit at that building - probably didn't have the resources or something's on cooldown
+    // couldn't build that unit at that building - should probably never reach this exit point
     return false;
 }
 
@@ -637,17 +601,8 @@ bool BetaStar::WarpUnit(const Unit *building, Point2D warpLocation, UnitTypeID u
         return false;
     }
 
-    AbilityID warpAbility = GetUnitWarpAbility(unitType);
-    AvailableAbilities abilities = Query()->GetAbilitiesForUnit(building);
-    for (const auto& ability : abilities.abilities) {
-        if (ability.ability_id == warpAbility) {
-            Actions()->UnitCommand(building, warpAbility, finalWarpPoint);
-            return true;
-        }
-    }
-
-    // failed to warp in the unit - probably on cooldown
-    return false;
+    // If this succeeds, return true. Otherwise, return false.
+    return TryIssueCommand(building, GetUnitWarpAbility(unitType), finalWarpPoint);
 }
 
 size_t BetaStar::MassTrainUnit(UnitTypeID unitType)
@@ -721,7 +676,11 @@ void BetaStar::TryBuildStructureNearPylon(AbilityID ability_type_for_structure, 
             if (closest_worker == nullptr) {
                 return;
             }
-            Actions()->UnitCommand(closest_worker, ability_type_for_structure, build_location);
+
+            // try to build the structure in the valid build location
+            TryIssueCommand(closest_worker, ability_type_for_structure, build_location);
+
+            // if we get here, we either succeeded or can't succeed. Exit.
             return;
         }
     }
@@ -751,8 +710,11 @@ void BetaStar::TryResearchUpgrade(AbilityID upgrade_abilityid, UnitTypeID buildi
             continue;
         }
         if (building->orders.size() == 0) {
-            Actions()->UnitCommand(building, upgrade_abilityid);
-            return;
+            // if we're successful in researching the upgrade, exit
+            if (TryIssueCommand(building, upgrade_abilityid))
+            {
+                return;
+            }
         }
     }
 }
@@ -827,4 +789,49 @@ void BetaStar::SetStrategy(Strategy newStrategy)
             army_ratios[UNIT_TYPEID::PROTOSS_STALKER] = 1.0f;
             break;
     }
+}
+
+bool BetaStar::TryIssueCommand(const Unit *unit, AbilityID ability)
+{
+    // Generic catch for when we can't use this ability (i.e. can't afford it, don't have the upgrades, on cooldown, etc.)
+    AvailableAbilities abilities = Query()->GetAbilitiesForUnit(unit);
+    for (const auto &tempAbility : abilities.abilities)
+    {
+        if (tempAbility.ability_id == ability)
+        {
+            Actions()->UnitCommand(unit, ability);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool BetaStar::TryIssueCommand(const Unit *unit, AbilityID ability, const Unit *target)
+{
+    // Generic catch for when we can't use this ability (i.e. can't afford it, don't have the upgrades, on cooldown, etc.)
+    AvailableAbilities abilities = Query()->GetAbilitiesForUnit(unit);
+    for (const auto &tempAbility : abilities.abilities)
+    {
+        if (tempAbility.ability_id == ability)
+        {
+            Actions()->UnitCommand(unit, ability, target);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool BetaStar::TryIssueCommand(const Unit *unit, AbilityID ability, Point2D point)
+{
+    // Generic catch for when we can't use this ability (i.e. can't afford it, don't have the upgrades, on cooldown, etc.)
+    AvailableAbilities abilities = Query()->GetAbilitiesForUnit(unit);
+    for (const auto &tempAbility : abilities.abilities)
+    {
+        if (tempAbility.ability_id == ability)
+        {
+            Actions()->UnitCommand(unit, ability, point);
+            return true;
+        }
+    }
+    return false;
 }

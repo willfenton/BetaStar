@@ -80,8 +80,6 @@ private:
 
     void TryBuildStructureNearPylon(AbilityID ability_type_for_structure, UnitTypeID unit_type);
 
-    bool TryBuildGas(Point2D base_location);
-
     bool NeedWorkers();
 
     const Unit* FindNearestNeutralUnit(const Point2D& start, UnitTypeID target_unit_type);
@@ -138,6 +136,14 @@ private:
     // Changes the current global strategy and makes adjustments accordingly
     void SetStrategy(Strategy newStrategy);
 
+    // Attempts to issue command to unit. Returns true if successful.
+    bool TryIssueCommand(const Unit *unit, AbilityID ability);
+
+    // Attempts to issue command with target unit parameter to unit. Returns true if successful.
+    bool TryIssueCommand(const Unit *unit, AbilityID ability, const Unit *target);
+
+    // Attempts to issue command with point parameter to unit. Returns true if successful.
+    bool TryIssueCommand(const Unit *unit, AbilityID ability, Point2D point);
 
     /* MEMBER DATA */
 
