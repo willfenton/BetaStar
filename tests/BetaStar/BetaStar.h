@@ -161,6 +161,9 @@ private:
 
     // position of our starting base
     Point3D m_starting_pos;
+    int m_starting_quadrant;
+
+    std::vector<Point2D> m_first_pylon_positions = {Point2D(43, 34), Point2D(33, 43)};
 
     enum starting_positions { SW, NW, NE, SE };
     int get_starting_position_of_point(Point2D pos)
@@ -182,6 +185,48 @@ private:
             std::cerr << "Error in get_starting_position_of_point()" << std::endl;
         }
         return starting_position;
+    }
+
+    // assumes points are in the south-west quadrant (x < 96, y < 96)
+    Point2D rotate_position(Point2D pos, int new_quadrant) {
+        Point2D new_pos(pos);
+        new_pos.x = new_pos.x - 96;
+        new_pos.y = new_pos.y - 96;
+        switch (new_quadrant) {
+            case (SW): {
+                break;
+            }
+            case (NW): {
+                for (int i = 0; i < 1; i++) {
+                    float x = new_pos.x;
+                    float y = new_pos.y;
+                    new_pos.x = y;
+                    new_pos.y = x * -1;
+                }
+                break;
+            }
+            case (NE): {
+                for (int i = 0; i < 2; i++) {
+                    float x = new_pos.x;
+                    float y = new_pos.y;
+                    new_pos.x = y;
+                    new_pos.y = x * -1;
+                }
+                break;
+            }
+            case (SE): {
+                for (int i = 0; i < 3; i++) {
+                    float x = new_pos.x;
+                    float y = new_pos.y;
+                    new_pos.x = y;
+                    new_pos.y = x * -1;
+                }
+                break;
+            }
+        }
+        new_pos.x = new_pos.x + 96;
+        new_pos.y = new_pos.y + 96;
+        return new_pos;
     }
 
     // position of enemy's starting base

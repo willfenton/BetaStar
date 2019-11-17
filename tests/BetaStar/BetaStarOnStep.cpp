@@ -148,13 +148,21 @@ void BetaStar::OnStepBuildPylons()
     }
 
     // find a position where we can build the pylon
-    float rx = GetRandomScalar();
-    float ry = GetRandomScalar();
-    Point2D pylon_pos = Point2D((worker_to_build->pos.x + (rx * 10.0f)), (worker_to_build->pos.y + (ry * 10.0f)));
-    while (!Query()->Placement(m_supply_building_abilityid, pylon_pos)) {
-        rx = GetRandomScalar();
-        ry = GetRandomScalar();
+    Point2D pylon_pos;
+
+    if (pylons.size() < m_first_pylon_positions.size()) {
+        pylon_pos = m_first_pylon_positions[pylons.size()];
+        pylon_pos = rotate_position(pylon_pos, m_starting_quadrant);
+    }
+    else {
+        float rx = GetRandomScalar();
+        float ry = GetRandomScalar();
         pylon_pos = Point2D((worker_to_build->pos.x + (rx * 10.0f)), (worker_to_build->pos.y + (ry * 10.0f)));
+        while (!Query()->Placement(m_supply_building_abilityid, pylon_pos)) {
+            rx = GetRandomScalar();
+            ry = GetRandomScalar();
+            pylon_pos = Point2D((worker_to_build->pos.x + (rx * 10.0f)), (worker_to_build->pos.y + (ry * 10.0f)));
+        }
     }
 
     // build a pylon (no need for additional checks since we've already checked to make sure we have the minerals)

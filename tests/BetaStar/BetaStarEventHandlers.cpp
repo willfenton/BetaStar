@@ -22,6 +22,14 @@ void BetaStar::OnStep() {
 
     OnStepTrainWorkers();
 
+    // for finding positions of points
+    //for (const auto& pylon : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_PYLON)) {
+    //    std::cout << "(" << pylon->pos.x << "," << pylon->pos.y << ")" << std::endl;
+    //}
+    //if (CountUnitType(UNIT_TYPEID::PROTOSS_PYLON) > 0) {
+    //    std::cout << std::endl;
+    //}
+
     OnStepBuildPylons();
 
     //OnStepBuildGas();
@@ -30,7 +38,7 @@ void BetaStar::OnStep() {
 
     OnStepManageWorkers();
 
-    //OnStepBuildArmy();
+    OnStepBuildArmy();
 
     TrainBalancedArmy();
 
@@ -51,6 +59,7 @@ void BetaStar::OnGameStart()
 
     // get position of first command center
     m_starting_pos = observation->GetStartLocation();
+    m_starting_quadrant = get_starting_position_of_point(m_starting_pos);
     std::cout << "Start location: (" << m_starting_pos.x << "," << m_starting_pos.y << ")" << std::endl;
 
     // calculate all expansion locations (this takes a while so we do it at the start of the game)
@@ -96,11 +105,11 @@ void BetaStar::OnUnitIdle(const Unit* unit)
 {
     switch (unit->unit_type.ToType()) {
 
-        case UNIT_TYPEID::PROTOSS_PROBE: {
-            const Unit* target = FindResourceToGather(unit->pos);
-            Actions()->UnitCommand(unit, ABILITY_ID::HARVEST_GATHER, target);
-            break;
-        }
+        //case UNIT_TYPEID::PROTOSS_PROBE: {
+        //    const Unit* target = FindResourceToGather(unit->pos);
+        //    Actions()->UnitCommand(unit, ABILITY_ID::HARVEST_GATHER, target);
+        //    break;
+        //}
 
         default: {
             //std::cout << "Idle unit of type " << unit->unit_type.to_string() << std::endl;
