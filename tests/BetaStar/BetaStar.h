@@ -256,7 +256,11 @@ private:
     // all expansion locations
     std::vector<Point3D> m_expansion_locations;
 
-    const Unit* m_initial_scouting_probe;
+    Units m_scouting_probes;
+
+    bool m_proxy_pylon_built = false;
+    Point2D m_proxy_pylon_pos = Point2D(33, 77);
+    Point2D m_proxy_probe_hiding_pos = Point2D(32, 81);
 
     // common unit ids
     const UnitTypeID m_base_typeid =               UNIT_TYPEID::PROTOSS_NEXUS;

@@ -20,8 +20,6 @@ void BetaStar::OnStep() {
         }
     }
 
-    OnStepTrainWorkers();
-
     // for finding positions of points
     //for (const auto& pylon : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_PYLON)) {
     //    std::cout << "(" << pylon->pos.x << "," << pylon->pos.y << ")" << std::endl;
@@ -29,6 +27,8 @@ void BetaStar::OnStep() {
     //if (CountUnitType(UNIT_TYPEID::PROTOSS_PYLON) > 0) {
     //    std::cout << std::endl;
     //}
+
+    OnStepTrainWorkers();
 
     OnStepBuildPylons();
 
@@ -67,32 +67,43 @@ void BetaStar::OnGameStart()
 
     /* SCOUTING */
 
-    // pick a random worker to be our scout
     Units workers = FriendlyUnitsOfType(m_worker_typeid);
-    m_initial_scouting_probe = GetRandomEntry(workers);
 
-    // this is a list of points where the enemy could have started
-    std::vector<Point2D> enemy_start_locations = game_info.enemy_start_locations;
-    size_t size = enemy_start_locations.size();
+    const Unit* scouting_probe_1 = workers[0];
+    const Unit* scouting_probe_2 = workers[1];
+    
+    m_scouting_probes.push_back(scouting_probe_1);
+    m_scouting_probes.push_back(scouting_probe_2);
 
-    // command the scout probe to visit all possible enemy starting locations
-    // this big block of code just makes the probe visit them in optimal order
-    // after this, the scouting probe will have move orders queued for each enemy start location
-    Actions()->UnitCommand(m_initial_scouting_probe, ABILITY_ID::MOVE, m_initial_scouting_probe->pos);
-    Point2D last_location = m_initial_scouting_probe->pos;
-    for (size_t i = 0; i < size; ++i) {
-        Point2D closest_start_location;
-        float closest_distance = std::numeric_limits<float>::max();
-        for (const auto& enemy_start_location : enemy_start_locations) {
-            float distance = DistanceSquared2D(last_location, enemy_start_location);
-            if (distance < closest_distance) {
-                closest_start_location = enemy_start_location;
-                closest_distance = distance;
-            }
+    switch (m_starting_quadrant) {
+        case (SW): {    // (33.5, 33.5)
+            Actions()->UnitCommand(scouting_probe_1, ABILITY_ID::MOVE, Point2D(33.5, 158.5));
+            Actions()->UnitCommand(scouting_probe_1, ABILITY_ID::MOVE, Point2D(158.5, 158.5), true);
+            Actions()->UnitCommand(scouting_probe_2, ABILITY_ID::MOVE, Point2D(158.5, 33.5));
+            Actions()->UnitCommand(scouting_probe_2, ABILITY_ID::MOVE, Point2D(158.5, 158.5), true);
+            break;
         }
-        Actions()->UnitCommand(m_initial_scouting_probe, ABILITY_ID::MOVE, closest_start_location, true);
-        last_location = closest_start_location;
-        enemy_start_locations.erase(std::find(enemy_start_locations.begin(), enemy_start_locations.end(), closest_start_location));
+        case (NW): {    // (33.5, 158.5)
+            Actions()->UnitCommand(scouting_probe_1, ABILITY_ID::MOVE, Point2D(33.5, 33.5));
+            Actions()->UnitCommand(scouting_probe_1, ABILITY_ID::MOVE, Point2D(158.5, 33.5), true);
+            Actions()->UnitCommand(scouting_probe_2, ABILITY_ID::MOVE, Point2D(158.5, 158.5));
+            Actions()->UnitCommand(scouting_probe_2, ABILITY_ID::MOVE, Point2D(158.5, 33.5), true);
+            break;
+        }
+        case (NE): {    // (158.5, 158.5)
+            Actions()->UnitCommand(scouting_probe_1, ABILITY_ID::MOVE, Point2D(33.5, 158.5));
+            Actions()->UnitCommand(scouting_probe_1, ABILITY_ID::MOVE, Point2D(33.5, 33.5), true);
+            Actions()->UnitCommand(scouting_probe_2, ABILITY_ID::MOVE, Point2D(158.5, 33.5));
+            Actions()->UnitCommand(scouting_probe_2, ABILITY_ID::MOVE, Point2D(33.5, 33.5), true);
+            break;
+        }
+        case (SE): {    // (158.5, 33.5)
+            Actions()->UnitCommand(scouting_probe_1, ABILITY_ID::MOVE, Point2D(33.5, 33.5));
+            Actions()->UnitCommand(scouting_probe_1, ABILITY_ID::MOVE, Point2D(33.5, 158.5), true);
+            Actions()->UnitCommand(scouting_probe_2, ABILITY_ID::MOVE, Point2D(158.5, 158.5));
+            Actions()->UnitCommand(scouting_probe_2, ABILITY_ID::MOVE, Point2D(33.5, 158.5), true);
+            break;
+        }
     }
 
     // Testing basic blink stalker strat (should be set dynamically based on intelligence about enemy and our win/loss record)
@@ -132,23 +143,33 @@ void BetaStar::OnBuildingConstructionComplete(const Unit* unit)
 void BetaStar::OnUnitEnterVision(const Unit* unit)
 {
     // initial scouting probe found it
-    if (!m_enemy_base_scouted && IsStructure(unit->unit_type) && DistanceSquared2D(unit->pos, m_initial_scouting_probe->pos) < 150) {
-        // find closest enemy starting location
-        Point2D closest_enemy_start_location;
-        float closest_distance = std::numeric_limits<float>::max();
-        for (const auto& enemy_start_location : Observation()->GetGameInfo().enemy_start_locations) {
-            float distance = DistanceSquared2D(unit->pos, enemy_start_location);
-            if (distance < closest_distance) {
-                closest_enemy_start_location = enemy_start_location;
-                closest_distance = distance;
+    if (!m_enemy_base_scouted && IsStructure(unit->unit_type)) {
+        for (const auto& scouting_probe : m_scouting_probes) {
+            float distance = DistanceSquared2D(unit->pos, scouting_probe->pos);
+            if (!m_enemy_base_scouted && distance < 150) {
+                // find closest enemy starting location
+                Point2D closest_enemy_start_location;
+                float closest_distance = std::numeric_limits<float>::max();
+                for (const auto& enemy_start_location : Observation()->GetGameInfo().enemy_start_locations) {
+                    float distance = DistanceSquared2D(unit->pos, enemy_start_location);
+                    if (distance < closest_distance) {
+                        closest_enemy_start_location = enemy_start_location;
+                        closest_distance = distance;
+                    }
+                }
+                if (closest_distance < std::numeric_limits<float>::max()) {
+                    std::cout << "Enemy start location found: (" << closest_enemy_start_location.x << "," << closest_enemy_start_location.y << ")" << std::endl;
+                    m_enemy_base_pos = closest_enemy_start_location;
+                    m_enemy_base_quadrant = get_starting_position_of_point(m_enemy_base_pos);
+                    m_enemy_base_scouted = true;
+                }
             }
         }
-        if (closest_distance < std::numeric_limits<float>::max()) {
-            std::cout << "Enemy start location found: (" << closest_enemy_start_location.x << "," << closest_enemy_start_location.y << ")" << std::endl;
-            m_enemy_base_pos = closest_enemy_start_location;
-            m_enemy_base_quadrant = get_starting_position_of_point(m_enemy_base_pos);
-            m_enemy_base_scouted = true;
-            Actions()->UnitCommand(m_initial_scouting_probe, ABILITY_ID::MOVE, m_starting_pos);
+        if (m_enemy_base_scouted) {
+            for (const auto& scouting_probe : m_scouting_probes) {
+                const_cast<Unit*>(scouting_probe)->orders.clear();
+                Actions()->UnitCommand(scouting_probe, ABILITY_ID::MOVE, rotate_position(Point2D(32, 81), m_enemy_base_quadrant));
+            }
         }
     }
 

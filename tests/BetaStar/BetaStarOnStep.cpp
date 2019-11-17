@@ -137,9 +137,17 @@ void BetaStar::OnStepBuildPylons()
     // select the worker to build the pylon
     const Unit* worker_to_build = nullptr;
     for (const auto& worker : workers) {
-        if (worker->tag != m_initial_scouting_probe->tag) {
-            worker_to_build = worker;
+        if (worker_to_build != nullptr) {
             break;
+        }
+        bool scout = false;
+        for (const auto& scouting_probe : m_scouting_probes) {
+            if (worker->tag == scouting_probe->tag) {
+                scout = true;
+            }
+        }
+        if (!scout) {
+            worker_to_build = worker;
         }
     }
 
@@ -444,6 +452,17 @@ void BetaStar::OnStepManageWorkers()
 
     // iterate through workers, adding idle workers and workers on oversaturated resources to idle_workers
     for (const auto& worker : workers) {
+        bool scout = false;
+        for (const auto& scouting_probe : m_scouting_probes) {
+            if (worker->tag == scouting_probe->tag) {
+                scout = true;
+                break;
+            }
+        }
+        if (scout) {
+            continue;
+        }
+
         // idle worker
         if (worker->orders.size() == 0) {
             idle_workers.push_back(worker);
@@ -510,6 +529,22 @@ void BetaStar::OnStepBuildOrder()
     size_t num_forges = CountUnitType(UNIT_TYPEID::PROTOSS_FORGE);
     size_t num_cybernetics_cores = CountUnitType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE);
     size_t num_twilight_councils = CountUnitType(UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
+
+    if (!m_proxy_pylon_built && m_enemy_base_scouted && num_minerals >= 100 && m_scouting_probes.size() > 0 && Query()->Placement(ABILITY_ID::BUILD_PYLON, rotate_position(m_proxy_pylon_pos, m_enemy_base_quadrant))) {
+        if (m_scouting_probes.size() > 0) {
+            Point2D pylon_pos = rotate_position(m_proxy_pylon_pos, m_enemy_base_quadrant);
+            const Unit* closest_scouting_probe = m_scouting_probes.front();
+            for (const auto& scouting_probe : m_scouting_probes) {
+                if (DistanceSquared2D(scouting_probe->pos, pylon_pos) < DistanceSquared2D(closest_scouting_probe->pos, pylon_pos)) {
+                    closest_scouting_probe = scouting_probe;
+                }
+            }
+            Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::BUILD_PYLON, rotate_position(m_proxy_pylon_pos, m_enemy_base_quadrant));
+            Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::MOVE, rotate_position(m_proxy_probe_hiding_pos, m_enemy_base_quadrant), true);
+            m_proxy_pylon_built = true;
+            return;
+        }
+    }
 
     if (num_pylons >= 1 && (num_gateways + num_warpgates) < 1 && num_minerals >= 150) {
         TryBuildStructureNearPylon(ABILITY_ID::BUILD_GATEWAY, m_worker_typeid);
