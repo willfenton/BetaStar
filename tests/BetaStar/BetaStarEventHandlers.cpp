@@ -146,6 +146,7 @@ void BetaStar::OnUnitEnterVision(const Unit* unit)
         if (closest_distance < std::numeric_limits<float>::max()) {
             std::cout << "Enemy start location found: (" << closest_enemy_start_location.x << "," << closest_enemy_start_location.y << ")" << std::endl;
             m_enemy_base_pos = closest_enemy_start_location;
+            m_enemy_base_quadrant = get_starting_position_of_point(m_enemy_base_pos);
             m_enemy_base_scouted = true;
             Actions()->UnitCommand(m_initial_scouting_probe, ABILITY_ID::MOVE, m_starting_pos);
         }

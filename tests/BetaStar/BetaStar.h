@@ -232,6 +232,7 @@ private:
     // position of enemy's starting base
     bool m_enemy_base_scouted = false;
     Point2D m_enemy_base_pos;
+    int m_enemy_base_quadrant;
 
     // how much supply we have left, updated each step
     int m_supply_left = 0;
