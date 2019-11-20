@@ -722,7 +722,7 @@ void BetaStar::OnStepChronoBoost()
     Units allUnits = Observation()->GetUnits(Unit::Alliance::Self);
     // chrono boost lasts 20 seconds in the current game version, but we can't grab this with the current API
     // chrono boost performs 30 seconds of work, so this is how much time we want remaining for an optimal application
-    float chronoBoostPseudoTime = 20.0f;
+    float chronoBoostPseudoTime = 30.0f;
 
     // unit to apply chrono boost to this frame
     const Unit *bestChronoCandidate = nullptr;
