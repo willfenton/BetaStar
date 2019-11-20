@@ -159,6 +159,9 @@ private:
 
     /* MEMBER DATA */
 
+    // info about all SC2 units
+    UnitTypes all_unit_type_data;
+
     // position of our starting base
     Point3D m_starting_pos;
     int m_starting_quadrant;
@@ -272,6 +275,7 @@ private:
     const AbilityID m_gas_building_abilityid =     ABILITY_ID::BUILD_ASSIMILATOR;
 
     // info about enemy
+    Race enemy_race = Race::Random;
     bool has_flying = false;
     bool has_cloaked = false;
     bool has_detection = false;

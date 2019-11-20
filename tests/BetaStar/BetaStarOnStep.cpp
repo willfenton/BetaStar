@@ -155,18 +155,17 @@ void BetaStar::OnStepBuildPylons()
         pylon_pos = rotate_position(pylon_pos, m_starting_quadrant);
     }
     else {
+        // if placement is invalid, try again next game loop to remove possibility of infinite loop
         float rx = GetRandomScalar();
         float ry = GetRandomScalar();
         pylon_pos = Point2D((worker_to_build->pos.x + (rx * 10.0f)), (worker_to_build->pos.y + (ry * 10.0f)));
-        while (!Query()->Placement(m_supply_building_abilityid, pylon_pos)) {
-            rx = GetRandomScalar();
-            ry = GetRandomScalar();
-            pylon_pos = Point2D((worker_to_build->pos.x + (rx * 10.0f)), (worker_to_build->pos.y + (ry * 10.0f)));
-        }
     }
 
-    // build a pylon (no need for additional checks since we've already checked to make sure we have the minerals)
-    Actions()->UnitCommand(worker_to_build, m_supply_building_abilityid, pylon_pos);
+    // build a pylon if the position is free
+    if (Query()->Placement(m_supply_building_abilityid, pylon_pos))
+    {
+        Actions()->UnitCommand(worker_to_build, m_supply_building_abilityid, pylon_pos);
+    }
 }
 
 // build more gas if neccessary

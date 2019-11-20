@@ -65,6 +65,9 @@ void BetaStar::OnGameStart()
     // calculate all expansion locations (this takes a while so we do it at the start of the game)
     m_expansion_locations = search::CalculateExpansionLocations(Observation(), Query());
 
+    // cache info about all SC2 units
+    all_unit_type_data = Observation()->GetUnitTypeData(true);
+
     /* SCOUTING */
 
     // pick a random worker to be our scout
