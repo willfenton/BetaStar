@@ -4,6 +4,27 @@ using namespace sc2;
 
 void BetaStar::GatherIntelligence(const Unit *unit)
 {
+    // detect enemy race
+    if (enemy_race == Race::Random)
+    {
+        enemy_race = all_unit_type_data[unit->unit_type].race;
+        switch (enemy_race)
+        {
+            case Race::Protoss:
+                std::cout << "Enemy is Protoss" << std::endl;
+                break;
+            case Race::Terran:
+                std::cout << "Enemy is Terran" << std::endl;
+                break;
+            case Race::Zerg:
+                std::cout << "Enemy is Zerg" << std::endl;
+                break;
+            default:
+                std::cout << "Enemy is [ERROR]" << std::endl;
+                break;
+        }
+    }
+
     // detect air units
     if (!has_flying && unit->is_flying)
     {
