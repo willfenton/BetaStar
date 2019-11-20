@@ -147,29 +147,38 @@ void BetaStar::BaseDefenseMacro(const Units units)
 void BetaStar::EnemyBaseAttackMacro(const Units units)
 {
     Units enemy_units = Observation()->GetUnits(Unit::Alliance::Enemy);
-    Point2D unitCentroid = GetUnitsCentroid(units);
 
     if (enemy_units.size() == 0) {
-        // if we're on top of the old base and can't find units, search for another base
-        if (!m_searching_new_enemy_base && DistanceSquared2D(unitCentroid, m_enemy_base_pos) < 100)
+        if (!m_searching_new_enemy_base)
         {
-            m_searching_new_enemy_base = true;
+            for (const Unit *unit : units)
+            {
+                // if we're on top of the old base and can't find units, search for another base
+                if (DistanceSquared2D(unit->pos, m_enemy_base_pos) < 100)
+                {
+                    m_searching_new_enemy_base = true;
+                    break;
+                }
+            }
         }
 
         if (m_searching_new_enemy_base)
         {
-            // we've reached a new location and there isn't anything here - go to the next one
-            if (DistanceSquared2D(unitCentroid, m_expansion_locations[m_current_search_index]) < 100)
+            for (const Unit *unit : units)
             {
-                m_current_search_index = (m_current_search_index + 1) % m_expansion_locations.size();
+                // we've reached a new location and there isn't anything here - go to the next one (hacked in check for rogue (0,0) point)
+                if (DistanceSquared2D(unit->pos, m_expansion_locations[m_current_search_index]) < 100
+                    || (m_expansion_locations[m_current_search_index].x < 0.1f && m_expansion_locations[m_current_search_index].y < 0.1f))
+                {
+                    m_current_search_index = (m_current_search_index + 1) % m_expansion_locations.size();
+                    break;
+                }
             }
-            // continue the march to the new location to check
-            else
-            {
-                Actions()->UnitCommand(units, ABILITY_ID::ATTACK, m_expansion_locations[m_current_search_index]);
-            }
+
+            // continue the march to the current location to check
+            Actions()->UnitCommand(units, ABILITY_ID::ATTACK, m_expansion_locations[m_current_search_index]);
         }
-        // still think we can march to enemy base to wipe them out - continue going there
+        // still think we can march to enemy main base to wipe them out - continue going there
         else
         {
             Actions()->UnitCommand(units, ABILITY_ID::ATTACK, m_enemy_base_pos);
@@ -177,7 +186,7 @@ void BetaStar::EnemyBaseAttackMacro(const Units units)
     }
     else {
         // TODO: Replace with targeting micro
-        Actions()->UnitCommand(units, ABILITY_ID::ATTACK, GetClosestUnit(unitCentroid, enemy_units)->pos);
+        Actions()->UnitCommand(units, ABILITY_ID::ATTACK, GetClosestUnit(GetUnitsCentroid(units), enemy_units)->pos);
     }
 }
 
