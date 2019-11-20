@@ -67,6 +67,9 @@ private:
 
     void OnStepResearchUpgrades();
 
+    // Keeps chrono boost active when possible
+    void OnStepChronoBoost();
+
     /* ON-UNIT-ENTER-VISION FUNCTIONS */
 
     // used to build a profile of the opponent over time - no response to threat in this function
@@ -148,6 +151,9 @@ private:
     // Returns the closest unit in units to position
     const Unit* GetClosestUnit(Point2D position, const Units units);
 
+    // Returns the average position of all provided units
+    Point2D GetUnitsCentroid(const Units units);
+
     /* COMBAT FUNCTIONS */
 
     // Macro actions to defend our base. Call first and override with micro.
@@ -161,6 +167,12 @@ private:
 
     // info about all SC2 units
     UnitTypes all_unit_type_data;
+    // info about all SC2 abilities
+    Abilities all_ability_data;
+    // info about all SC2 upgrades
+    Upgrades all_upgrades;
+    // info about all SC2 buffs
+    Buffs all_buffs;
 
     // position of our starting base
     Point3D m_starting_pos;
