@@ -105,7 +105,7 @@ void BetaStar::OnStepBuildPylons()
         return;
     }
 
-    // check whether we're over the supply threshold to build a pylon
+    // check whether we're over or equal the supply threshold to build a pylon
     if (supply_left >= supply_threshold) {
         return;
     }
@@ -153,6 +153,21 @@ void BetaStar::OnStepBuildPylons()
     if (pylons.size() < m_first_pylon_positions.size()) {
         pylon_pos = m_first_pylon_positions[pylons.size()];
         pylon_pos = rotate_position(pylon_pos, m_starting_quadrant);
+
+        // Add pylon to vector of placed pylon positions
+        m_placed_pylon_positions.push_back(pylon_pos);
+    }
+    else if (pylons.size() < m_placed_pylon_positions.size()) {
+        // A pylon must have been destroyed, repair it
+        for (const Point2D& pylon_position : m_placed_pylon_positions) {
+            // Check if this was the destroyed pylon
+            if (Query()->Placement(m_supply_building_abilityid, pylon_position)) {
+                //std::cout << "Pylon pos: (" << pylon_position.x << ", " << pylon_position.y << ")" << std::endl;
+                // Pylon destroyed, place new one here
+                pylon_pos = pylon_position;
+                break;
+            }
+        }
     }
     else {
         float rx = GetRandomScalar();
@@ -163,6 +178,9 @@ void BetaStar::OnStepBuildPylons()
             ry = GetRandomScalar();
             pylon_pos = Point2D((worker_to_build->pos.x + (rx * 10.0f)), (worker_to_build->pos.y + (ry * 10.0f)));
         }
+
+        // Add pylon to vector of placed pylon positions
+        m_placed_pylon_positions.push_back(pylon_pos);
     }
 
     // build a pylon (no need for additional checks since we've already checked to make sure we have the minerals)
@@ -510,6 +528,18 @@ void BetaStar::OnStepBuildOrder()
     size_t num_forges = CountUnitType(UNIT_TYPEID::PROTOSS_FORGE);
     size_t num_cybernetics_cores = CountUnitType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE);
     size_t num_twilight_councils = CountUnitType(UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
+
+    // Determine if a structure has been destroyed
+    for (int i = 0; i < m_buildings.size(); ++i) {
+        auto& building_info = m_buildings[i];
+        Point2D build_location = std::get<0>(building_info);
+        if (Query()->Placement(std::get<1>(building_info), build_location)) {
+            // Space empty, building was destroyed here
+            TryBuildStructureNearPylon(std::get<1>(building_info), m_worker_typeid);
+            m_buildings.erase(m_buildings.begin() + i); // Remove tuple
+            return;
+        }
+    }
 
     if (num_pylons >= 1 && (num_gateways + num_warpgates) < 1 && num_minerals >= 150) {
         TryBuildStructureNearPylon(ABILITY_ID::BUILD_GATEWAY, m_worker_typeid);

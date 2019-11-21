@@ -8,6 +8,7 @@
 #include "sc2utils/sc2_arg_parser.h"
 
 #include <map>
+#include <tuple>
 
 using namespace sc2;
 
@@ -164,6 +165,12 @@ private:
     int m_starting_quadrant;
 
     std::vector<Point2D> m_first_pylon_positions = {Point2D(43, 34), Point2D(33, 43)};
+    std::vector<Point2D> m_placed_pylon_positions;
+
+    // Contains building position and ids to recreate when destroyed
+    std::vector<Point2D> m_building_positions;
+    std::vector<AbilityID> m_building_ids;
+    std::vector<std::tuple<Point2D, AbilityID>> m_buildings;
 
     enum starting_positions { SW, NW, NE, SE };
     int get_starting_position_of_point(Point2D pos)
