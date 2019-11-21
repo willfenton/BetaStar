@@ -678,7 +678,18 @@ void BetaStar::TryBuildStructureNearPylon(AbilityID ability_type_for_structure, 
             }
 
             // try to build the structure in the valid build location
-            TryIssueCommand(closest_worker, ability_type_for_structure, build_location);
+            if (TryIssueCommand(closest_worker, ability_type_for_structure, build_location)) {
+                // Build valid, add info
+                //bool seen = false;
+                //for (const auto& building : m_buildings) {
+                //    if (build_location == position) {
+                //        seen = true; // Don't add to vector
+                //    }
+                //}
+                //if (!seen) {
+                m_buildings.push_back(std::make_tuple(build_location, ability_type_for_structure));
+                //}
+            }
 
             // if we get here, we either succeeded or can't succeed. Exit.
             return;
