@@ -131,13 +131,27 @@ void BetaStar::OnUnitIdle(const Unit* unit)
 
 void BetaStar::OnBuildingConstructionComplete(const Unit* unit)
 {
-    /*switch (unit->unit_type.ToType()) {
+    switch (unit->unit_type.ToType()) {
+
+        case UNIT_TYPEID::PROTOSS_PYLON: {
+            if (!m_proxy_pylon_completed && DistanceSquared2D(unit->pos, rotate_position(m_proxy_pylon_pos, m_enemy_base_quadrant)) < 5) {
+                m_proxy_pylon_completed = true;
+            }
+            break;
+        }
+
+        case UNIT_TYPEID::PROTOSS_PHOTONCANNON: {
+            if (!m_proxy_cannon_completed && DistanceSquared2D(unit->pos, rotate_position(m_proxy_cannon_positions[0], m_enemy_base_quadrant)) < 5) {
+                m_proxy_cannon_completed = true;
+            }
+            break;
+        }
 
         case UNIT_TYPEID::PROTOSS_NEXUS: {
             m_building_nexus = false;
             break;
         }
-    }*/
+    }
 }
 
 void BetaStar::OnUnitEnterVision(const Unit* unit)

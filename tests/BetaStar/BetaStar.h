@@ -259,8 +259,13 @@ private:
     Units m_scouting_probes;
 
     bool m_proxy_pylon_built = false;
-    Point2D m_proxy_pylon_pos = Point2D(33, 77);
+    bool m_proxy_pylon_completed = false;
+    Point2D m_proxy_pylon_pos = Point2D(33, 75);
     Point2D m_proxy_probe_hiding_pos = Point2D(32, 81);
+
+    bool m_proxy_cannon_built = false;
+    bool m_proxy_cannon_completed = false;
+    std::vector<Point2D> m_proxy_cannon_positions = { Point2D(32, 73), Point2D(34, 73) };
 
     // common unit ids
     const UnitTypeID m_base_typeid =               UNIT_TYPEID::PROTOSS_NEXUS;

@@ -529,21 +529,49 @@ void BetaStar::OnStepBuildOrder()
     size_t num_forges = CountUnitType(UNIT_TYPEID::PROTOSS_FORGE);
     size_t num_cybernetics_cores = CountUnitType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE);
     size_t num_twilight_councils = CountUnitType(UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
+    size_t num_photon_cannons = CountUnitType(UNIT_TYPEID::PROTOSS_PHOTONCANNON);
 
     if (!m_proxy_pylon_built && m_enemy_base_scouted && num_minerals >= 100 && m_scouting_probes.size() > 0 && Query()->Placement(ABILITY_ID::BUILD_PYLON, rotate_position(m_proxy_pylon_pos, m_enemy_base_quadrant))) {
-        if (m_scouting_probes.size() > 0) {
-            Point2D pylon_pos = rotate_position(m_proxy_pylon_pos, m_enemy_base_quadrant);
-            const Unit* closest_scouting_probe = m_scouting_probes.front();
-            for (const auto& scouting_probe : m_scouting_probes) {
-                if (DistanceSquared2D(scouting_probe->pos, pylon_pos) < DistanceSquared2D(closest_scouting_probe->pos, pylon_pos)) {
-                    closest_scouting_probe = scouting_probe;
-                }
+        Point2D pylon_pos = rotate_position(m_proxy_pylon_pos, m_enemy_base_quadrant);
+        const Unit* closest_scouting_probe = m_scouting_probes.front();
+        for (const auto& scouting_probe : m_scouting_probes) {
+            if (DistanceSquared2D(scouting_probe->pos, pylon_pos) < DistanceSquared2D(closest_scouting_probe->pos, pylon_pos)) {
+                closest_scouting_probe = scouting_probe;
             }
-            Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::BUILD_PYLON, rotate_position(m_proxy_pylon_pos, m_enemy_base_quadrant));
-            Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::MOVE, rotate_position(m_proxy_probe_hiding_pos, m_enemy_base_quadrant), true);
-            m_proxy_pylon_built = true;
+        }
+        Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::BUILD_PYLON, pylon_pos);
+        Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::MOVE, rotate_position(m_proxy_probe_hiding_pos, m_enemy_base_quadrant), true);
+        m_proxy_pylon_built = true;
+        return;
+    }
+
+    if (m_proxy_pylon_completed && num_photon_cannons < m_proxy_cannon_positions.size() && num_minerals >= 150 && num_forges >= 1 && m_scouting_probes.size() > 0) {
+        Point2D cannon_pos = rotate_position(m_proxy_cannon_positions[num_photon_cannons], m_enemy_base_quadrant);
+        if (!Query()->Placement(ABILITY_ID::BUILD_PHOTONCANNON, cannon_pos)) {
             return;
         }
+        const Unit* closest_scouting_probe = m_scouting_probes.front();
+        for (const auto& scouting_probe : m_scouting_probes) {
+            if (DistanceSquared2D(scouting_probe->pos, cannon_pos) < DistanceSquared2D(closest_scouting_probe->pos, cannon_pos)) {
+                closest_scouting_probe = scouting_probe;
+            }
+        }
+
+        for (const auto& order : closest_scouting_probe->orders) {
+            if (order.ability_id == ABILITY_ID::BUILD_PHOTONCANNON) {
+                return;
+            }
+        }
+
+        Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::BUILD_PHOTONCANNON, cannon_pos);
+        Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::MOVE, rotate_position(m_proxy_probe_hiding_pos, m_enemy_base_quadrant), true);
+        m_proxy_cannon_built = true;
+        return;
+    }
+
+    if (num_pylons >= 1 && num_forges < 1 && num_minerals >= 150) {
+        TryBuildStructureNearPylon(ABILITY_ID::BUILD_FORGE, m_worker_typeid);
+        return;
     }
 
     if (num_pylons >= 1 && (num_gateways + num_warpgates) < 1 && num_minerals >= 150) {
@@ -551,30 +579,30 @@ void BetaStar::OnStepBuildOrder()
         return;
     }
 
-    if ((num_gateways + num_warpgates) > 0 && num_gases < 1 && num_minerals >= 75) {
+    if (num_photon_cannons > 0 && (num_gateways + num_warpgates) > 0 && num_gases < 1 && num_minerals >= 75) {
         OnStepBuildGas();
         return;
     }
 
-    if (num_gases > 0 && num_cybernetics_cores < 1 && num_minerals >= 150) {
+    if (num_photon_cannons > 0 && num_gases > 0 && num_cybernetics_cores < 1 && num_minerals >= 150) {
         TryBuildStructureNearPylon(ABILITY_ID::BUILD_CYBERNETICSCORE, m_worker_typeid);
         return;
     }
 
-    if (num_twilight_councils < 1 && num_cybernetics_cores > 0 && num_minerals >= 150 && num_gas >= 100) {
-        TryBuildStructureNearPylon(ABILITY_ID::BUILD_TWILIGHTCOUNCIL, m_worker_typeid);
-        return;
-    }
+    //if (num_twilight_councils < 1 && num_cybernetics_cores > 0 && num_minerals >= 150 && num_gas >= 100) {
+    //    TryBuildStructureNearPylon(ABILITY_ID::BUILD_TWILIGHTCOUNCIL, m_worker_typeid);
+    //    return;
+    //}
 
     if (num_cybernetics_cores > 0 && num_gases < 2 && num_minerals >= 75) {
         OnStepBuildGas();
         return;
     }
 
-    if (m_blink_researching && num_gases >= 2 && (num_gateways + num_warpgates) < 4 && num_minerals >= 150) {
-        TryBuildStructureNearPylon(ABILITY_ID::BUILD_GATEWAY, m_worker_typeid);
-        return;
-    }
+    //if (m_blink_researching && num_gases >= 2 && (num_gateways + num_warpgates) < 4 && num_minerals >= 150) {
+    //    TryBuildStructureNearPylon(ABILITY_ID::BUILD_GATEWAY, m_worker_typeid);
+    //    return;
+    //}
 }
 
 //Try to get upgrades depending on build
