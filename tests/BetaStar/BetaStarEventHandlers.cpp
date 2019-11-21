@@ -47,6 +47,9 @@ void BetaStar::OnStep() {
     OnStepManageArmy();
 
     OnStepResearchUpgrades();
+
+    // do this at the end so that it can properly boost new production
+    OnStepChronoBoost();
 }
 
 void BetaStar::OnGameStart()
@@ -64,6 +67,20 @@ void BetaStar::OnGameStart()
 
     // calculate all expansion locations (this takes a while so we do it at the start of the game)
     m_expansion_locations = search::CalculateExpansionLocations(Observation(), Query());
+
+    /*for (Point3D loc : m_expansion_locations)
+    {
+        std::cout << loc.x << "," << loc.y << std::endl;
+    }*/
+
+    // cache info about all SC2 units
+    all_unit_type_data = Observation()->GetUnitTypeData(true);
+    // cache info about all SC2 abilities
+    all_ability_data = Observation()->GetAbilityData(true);
+    // cache info about all SC2 upgrades
+    all_upgrades = Observation()->GetUpgradeData(true);
+    // cache info about all SC2 buffs
+    all_buffs = Observation()->GetBuffData(true);
 
     /* SCOUTING */
 
@@ -103,19 +120,19 @@ void BetaStar::OnGameStart()
 // Both buildings and units are considered units and are represented with a Unit object.
 void BetaStar::OnUnitIdle(const Unit* unit)
 {
-    switch (unit->unit_type.ToType()) {
+    //switch (unit->unit_type.ToType()) {
 
-        //case UNIT_TYPEID::PROTOSS_PROBE: {
-        //    const Unit* target = FindResourceToGather(unit->pos);
-        //    Actions()->UnitCommand(unit, ABILITY_ID::HARVEST_GATHER, target);
-        //    break;
-        //}
+    //    //case UNIT_TYPEID::PROTOSS_PROBE: {
+    //    //    const Unit* target = FindResourceToGather(unit->pos);
+    //    //    Actions()->UnitCommand(unit, ABILITY_ID::HARVEST_GATHER, target);
+    //    //    break;
+    //    //}
 
-        default: {
-            //std::cout << "Idle unit of type " << unit->unit_type.to_string() << std::endl;
-            break;
-        }
-    }
+    //    default: {
+    //        //std::cout << "Idle unit of type " << unit->unit_type.to_string() << std::endl;
+    //        break;
+    //    }
+    //}
 }
 
 void BetaStar::OnBuildingConstructionComplete(const Unit* unit)

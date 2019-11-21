@@ -4,6 +4,27 @@ using namespace sc2;
 
 void BetaStar::GatherIntelligence(const Unit *unit)
 {
+    // detect enemy race
+    if (enemy_race == Race::Random)
+    {
+        enemy_race = all_unit_type_data[unit->unit_type].race;
+        switch (enemy_race)
+        {
+            case Race::Protoss:
+                std::cout << "Enemy is Protoss" << std::endl;
+                break;
+            case Race::Terran:
+                std::cout << "Enemy is Terran" << std::endl;
+                break;
+            case Race::Zerg:
+                std::cout << "Enemy is Zerg" << std::endl;
+                break;
+            default:
+                std::cout << "Enemy is [ERROR]" << std::endl;
+                break;
+        }
+    }
+
     // detect air units
     if (!has_flying && unit->is_flying)
     {
@@ -127,37 +148,45 @@ void BetaStar::EnemyBaseAttackMacro(const Units units)
 {
     Units enemy_units = Observation()->GetUnits(Unit::Alliance::Enemy);
 
-    for (const auto& unit : units) {
-        if (enemy_units.size() == 0) {
-            // if we're on top of the old base and can't find units, search for another base
-            if (DistanceSquared2D(unit->pos, m_enemy_base_pos) < 100)
+    if (enemy_units.size() == 0) {
+        if (!m_searching_new_enemy_base)
+        {
+            for (const Unit *unit : units)
             {
-                m_searching_new_enemy_base = true;
+                // if we're on top of the old base and can't find units, search for another base
+                if (DistanceSquared2D(unit->pos, m_enemy_base_pos) < 100)
+                {
+                    m_searching_new_enemy_base = true;
+                    break;
+                }
             }
+        }
 
-            if (m_searching_new_enemy_base)
+        if (m_searching_new_enemy_base)
+        {
+            for (const Unit *unit : units)
             {
-                // we've reached a new location and there isn't anything here - go to the next one
-                if (DistanceSquared2D(unit->pos, m_expansion_locations[m_current_search_index]) < 100)
+                // we've reached a new location and there isn't anything here - go to the next one (hacked in check for rogue (0,0) point)
+                if (DistanceSquared2D(unit->pos, m_expansion_locations[m_current_search_index]) < 100
+                    || (m_expansion_locations[m_current_search_index].x < 0.1f && m_expansion_locations[m_current_search_index].y < 0.1f))
                 {
                     m_current_search_index = (m_current_search_index + 1) % m_expansion_locations.size();
-                }
-                // continue the march to the new location to check
-                else
-                {
-                    Actions()->UnitCommand(unit, ABILITY_ID::ATTACK, m_expansion_locations[m_current_search_index]);
+                    break;
                 }
             }
-            // still think we can march to enemy base to wipe them out - continue going there
-            else
-            {
-                Actions()->UnitCommand(unit, ABILITY_ID::ATTACK, m_enemy_base_pos);
-            }
+
+            // continue the march to the current location to check
+            Actions()->UnitCommand(units, ABILITY_ID::ATTACK, m_expansion_locations[m_current_search_index]);
         }
-        else {
-            // TODO: Replace with targeting micro
-            Actions()->UnitCommand(unit, ABILITY_ID::ATTACK, GetClosestUnit(unit->pos, enemy_units)->pos);
+        // still think we can march to enemy main base to wipe them out - continue going there
+        else
+        {
+            Actions()->UnitCommand(units, ABILITY_ID::ATTACK, m_enemy_base_pos);
         }
+    }
+    else {
+        // TODO: Replace with targeting micro
+        Actions()->UnitCommand(units, ABILITY_ID::ATTACK, GetClosestUnit(GetUnitsCentroid(units), enemy_units)->pos);
     }
 }
 

@@ -170,21 +170,20 @@ void BetaStar::OnStepBuildPylons()
         }
     }
     else {
+        // if placement is invalid, try again next game loop to remove possibility of infinite loop
         float rx = GetRandomScalar();
         float ry = GetRandomScalar();
         pylon_pos = Point2D((worker_to_build->pos.x + (rx * 10.0f)), (worker_to_build->pos.y + (ry * 10.0f)));
-        while (!Query()->Placement(m_supply_building_abilityid, pylon_pos)) {
-            rx = GetRandomScalar();
-            ry = GetRandomScalar();
-            pylon_pos = Point2D((worker_to_build->pos.x + (rx * 10.0f)), (worker_to_build->pos.y + (ry * 10.0f)));
-        }
 
         // Add pylon to vector of placed pylon positions
         m_placed_pylon_positions.push_back(pylon_pos);
     }
 
-    // build a pylon (no need for additional checks since we've already checked to make sure we have the minerals)
-    Actions()->UnitCommand(worker_to_build, m_supply_building_abilityid, pylon_pos);
+    // build a pylon if the position is free
+    if (Query()->Placement(m_supply_building_abilityid, pylon_pos))
+    {
+        Actions()->UnitCommand(worker_to_build, m_supply_building_abilityid, pylon_pos);
+    }
 }
 
 // build more gas if neccessary
@@ -588,16 +587,6 @@ void BetaStar::OnStepResearchUpgrades() {
         for (const auto& order : cybernetics_core->orders) {
             if (order.ability_id == ABILITY_ID::RESEARCH_WARPGATE) {
                 m_warpgate_researching = true;
-                if (order.progress < 0.8) { // not sure about this number
-                    auto buffs = cybernetics_core->buffs;
-                    if (std::find(buffs.begin(), buffs.end(), BuffID(281)) == buffs.end()) {
-                        for (const auto& base : bases) {
-                            // No errors when attempting without energy
-                            TryIssueCommand(base, AbilityID(3755), cybernetics_core);
-                            break;
-                        }
-                    }
-                }
             }
         }
     }
@@ -609,16 +598,6 @@ void BetaStar::OnStepResearchUpgrades() {
         for (const auto& order : twilight_council->orders) {
             if (order.ability_id == ABILITY_ID::RESEARCH_BLINK) {
                 m_blink_researching = true;
-                if (order.progress < 0.8) {
-                    auto buffs = twilight_council->buffs;
-                    if (std::find(buffs.begin(), buffs.end(), BuffID(281)) == buffs.end()) {
-                        for (const auto& base : bases) {
-                            // No errors when attempting without energy
-                            TryIssueCommand(base, AbilityID(3755), twilight_council);
-                            break;
-                        }
-                    }
-                }
             }
         }
     }
@@ -740,4 +719,143 @@ void BetaStar::OnStepManageArmy()
 
     // This micro is always valid to perform
     StalkerBlinkMicro();
+}
+
+void BetaStar::OnStepChronoBoost()
+{
+    // TODO: Could possibly create more explicit ordering to break ties for concurrent upgrades
+    //       would need to have a custom ordering for each strategy though
+
+    Units nexuses = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_NEXUS);
+
+    // minimum energy required to chrono boost
+    float minEnergy = 50.0f;
+    // minimum energy we want to have before spending some on non-essential chrono boosting
+    float minEnergyStingy = 100.0f;
+
+    // make sure at least one nexus has enough energy to chrono
+    float maxEnergy = 0.0f;
+    for (const Unit *unit : nexuses)
+    {
+        if (unit->energy >= maxEnergy)
+        {
+            maxEnergy = unit->energy;
+        }
+    }
+
+    // don't have energy for chrono, don't need to look for things to chrono
+    if (maxEnergy < minEnergy)
+    {
+        return;
+    }
+
+    Units allUnits = Observation()->GetUnits(Unit::Alliance::Self);
+    // chrono boost lasts 20 seconds in the current game version, but we can't grab this with the current API
+    // chrono boost performs 30 seconds of work, so this is how much time we want remaining for an optimal application
+    float chronoBoostPseudoTime = 30.0f;
+
+    // unit to apply chrono boost to this frame
+    const Unit *bestChronoCandidate = nullptr;
+    // highest priority is 3, lowest is 0, -1 is invalid
+    int bestCandidatePriority = -1;
+
+    for (const Unit *unit : allUnits)
+    {
+        // save some time since we'll never beat this priority
+        if (bestCandidatePriority == 3)
+        {
+            break;
+        }
+
+        // Chrono Boost only works on structures
+        if (IsStructure(unit->unit_type))
+        {
+            // if we don't find the buff, possibly apply it to this unit (281 is Chrono Boost)
+            if (std::find(unit->buffs.begin(), unit->buffs.end(), BuffID(281)) == unit->buffs.end())
+            {
+                for (UnitOrder order : unit->orders)
+                {
+                    // buildings with research queues
+                    if (bestCandidatePriority < 3 && maxEnergy >= minEnergy)
+                    {
+                        // calculate how much research time this building still has to work through
+                        float totalRemainingTime = 0.0f;
+                        for (UpgradeData ud : all_upgrades)
+                        {
+                            if (ud.ability_id == order.ability_id)
+                            {
+                                totalRemainingTime += ud.research_time * order.progress;
+                            }
+                        }
+                        // if we will fully utilize the chrono boost, apply it
+                        if (totalRemainingTime >= chronoBoostPseudoTime)
+                        {
+                            bestChronoCandidate = unit;
+                            bestCandidatePriority = 3;
+                            break;
+                        }
+                    }
+
+                    // special case for a Nexus that's trying to build workers
+                    if (bestCandidatePriority < 2 && maxEnergy >= minEnergy)
+                    {
+                        if (unit->unit_type == UNIT_TYPEID::PROTOSS_NEXUS)
+                        {
+                            if (m_worker_train_abilityid == order.ability_id)
+                            {
+                                bestChronoCandidate = unit;
+                                bestCandidatePriority = 2;
+                                break;
+                            }
+                        }
+                    }
+
+                    // buildings with unit production queues
+                    // std::find with functor would likely be faster
+                    if (bestCandidatePriority < 1 && maxEnergy >= minEnergyStingy)
+                    {
+                        for (UnitTypeData utd : all_unit_type_data)
+                        {
+                            if (utd.ability_id == order.ability_id)
+                            {
+                                //totalRemainingTime += utd.build_time * order.progress;
+                                // our bot doesn't build real queues, so assume they're infinite as a workaround
+                                bestChronoCandidate = unit;
+                                bestCandidatePriority = 1;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // computationally expensive solution for warpgate chrono (don't think there's a way to do it without a query)
+                if (bestCandidatePriority < 0 && maxEnergy >= minEnergyStingy)
+                {
+                    if (unit->unit_type == UNIT_TYPEID::PROTOSS_WARPGATE)
+                    {
+                        size_t abilityCount = Query()->GetAbilitiesForUnit(unit, true).abilities.size();
+                        size_t availableCount = Query()->GetAbilitiesForUnit(unit).abilities.size();
+
+                        // can't check cooldowns, so assume we'll be building as soon as it's off cooldown (== infinite queue)
+                        if (abilityCount != availableCount)
+                        {
+                            bestChronoCandidate = unit;
+                            bestCandidatePriority = 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (bestCandidatePriority > -1)
+    {
+        for (const auto &nexus : nexuses) {
+            // If successful, break. Otherwise, try next Nexus
+            if(TryIssueCommand(nexus, AbilityID(3755), bestChronoCandidate))
+            {
+                break;
+            }
+        }
+    }
 }

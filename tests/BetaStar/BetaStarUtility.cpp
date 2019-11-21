@@ -870,3 +870,14 @@ const Unit* BetaStar::GetClosestUnit(Point2D position, const Units units)
 
     return units[minIndex];
 }
+
+Point2D BetaStar::GetUnitsCentroid(const Units units)
+{
+    Point2D centroid(0, 0);
+    for (const Unit *unit : units)
+    {
+        centroid += unit->pos;
+    }
+
+    return centroid / (float)units.size();
+}
