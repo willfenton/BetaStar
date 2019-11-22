@@ -43,6 +43,9 @@ public:
 
     virtual void OnUpgradeCompleted(UpgradeID upgrade_id) final;
 
+    virtual void OnUnitCreated(const Unit* unit) final;
+
+
 private:
 
     /* ON-STEP FUNCTIONS */
@@ -66,6 +69,7 @@ private:
     void OnStepManageArmy();
 
     void OnStepResearchUpgrades();
+
 
     /* ON-UNIT-ENTER-VISION FUNCTIONS */
 
@@ -250,22 +254,30 @@ private:
     // how many bases to build (max)
     const int m_max_bases = 3;
 
-    // whether we are currently building a nexus (don't consider expanding if true)
-    bool m_building_nexus = false;
-
     // all expansion locations
     std::vector<Point3D> m_expansion_locations;
 
     Units m_scouting_probes;
 
+    Point2D m_proxy_rally_point = Point2D(33, 69);
+
     bool m_proxy_pylon_built = false;
     bool m_proxy_pylon_completed = false;
-    Point2D m_proxy_pylon_pos = Point2D(33, 75);
-    Point2D m_proxy_probe_hiding_pos = Point2D(32, 81);
+    std::vector<Point2D> m_proxy_pylon_positions = { Point2D(33, 74), Point2D(33, 77) };
 
     bool m_proxy_cannon_built = false;
     bool m_proxy_cannon_completed = false;
-    std::vector<Point2D> m_proxy_cannon_positions = { Point2D(32, 73), Point2D(34, 73) };
+    std::vector<Point2D> m_proxy_cannon_positions = { Point2D(32, 72), Point2D(34, 72) };
+
+    bool m_proxy_robo_built = false;
+    bool m_proxy_robo_completed = false;
+    std::vector<Point2D> m_proxy_robo_positions = { Point2D(32.5, 79.5) };
+
+    bool m_proxy_shield_battery_built = false;
+    bool m_proxy_shield_battery_completed = false;
+    std::vector<Point2D> m_proxy_shield_battery_positions = { Point2D(31, 74), Point2D(35, 74), Point2D(29, 71), Point2D(37, 72) };
+
+    Point2D m_proxy_probe_hiding_pos = Point2D(26, 79);
 
     // common unit ids
     const UnitTypeID m_base_typeid =               UNIT_TYPEID::PROTOSS_NEXUS;

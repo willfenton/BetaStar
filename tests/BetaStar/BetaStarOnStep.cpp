@@ -32,8 +32,10 @@ void BetaStar::OnStepTrainWorkers()
         return;
     }
 
-    int sum_ideal_harvesters = 0;                         // ideal # of workers
-    int total_workers = (int)CountUnitType(m_worker_typeid);   // total # of workers (including those in training)
+    int sum_assigned_harvesters = 0;    // # of workers currently working
+    int sum_ideal_harvesters = 0;       // ideal # of workers
+
+    int workers_training = 0;   // # of workers currently being trained
 
     const Units bases = FriendlyUnitsOfType(m_base_typeid);
     const Units gases = FriendlyUnitsOfType(m_gas_building_typeid);
@@ -46,7 +48,15 @@ void BetaStar::OnStepTrainWorkers()
             sum_ideal_harvesters += 16;  // train workers for the base under construction
             continue;
         }
+        sum_assigned_harvesters += base->assigned_harvesters;
         sum_ideal_harvesters += base->ideal_harvesters;
+
+        // check for workers being trained
+        for (const auto& order : base->orders) {
+            if (order.ability_id == m_worker_train_abilityid) {
+                ++workers_training;
+            }
+        }
     }
 
     // compute gas worker counts
@@ -56,12 +66,13 @@ void BetaStar::OnStepTrainWorkers()
             sum_ideal_harvesters += 3;  // train 3 workers so that the gas can be worked once it's done
             continue;
         }
+        sum_assigned_harvesters += gas->assigned_harvesters;
         sum_ideal_harvesters += gas->ideal_harvesters;
     }
 
     for (const auto& base : bases) {
         // check whether we should train another worker, if not then return
-        if (total_workers >= sum_ideal_harvesters) {
+        if (sum_assigned_harvesters + workers_training >= sum_ideal_harvesters) {
             return;
         }
         if (num_minerals < 50) {
@@ -75,16 +86,17 @@ void BetaStar::OnStepTrainWorkers()
         if (base->build_progress != 1) {
             continue;
         }
-
-        // attempt to train a worker - will not fill queue, which leaves us with more resource flexibility
-        // (and our bot has instant response, so doesn't need a full queue)
-        if (TrainUnit(base, m_worker_typeid))
-        {
-            // update stats if worker was added to training queue
-            ++total_workers;
-            --supply_left;
-            num_minerals -= 50;
+        if (base->orders.size() > 0) {
+            continue;
         }
+
+        // train a worker
+        Actions()->UnitCommand(base, m_worker_train_abilityid);
+
+        // update stats
+        ++workers_training;
+        --supply_left;
+        num_minerals -= 50;
     }
 }
 
@@ -530,43 +542,117 @@ void BetaStar::OnStepBuildOrder()
     size_t num_cybernetics_cores = CountUnitType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE);
     size_t num_twilight_councils = CountUnitType(UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
     size_t num_photon_cannons = CountUnitType(UNIT_TYPEID::PROTOSS_PHOTONCANNON);
+    size_t num_robotics_facilities = CountUnitType(UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY);
 
-    if (!m_proxy_pylon_built && m_enemy_base_scouted && num_minerals >= 100 && m_scouting_probes.size() > 0 && Query()->Placement(ABILITY_ID::BUILD_PYLON, rotate_position(m_proxy_pylon_pos, m_enemy_base_quadrant))) {
-        Point2D pylon_pos = rotate_position(m_proxy_pylon_pos, m_enemy_base_quadrant);
-        const Unit* closest_scouting_probe = m_scouting_probes.front();
-        for (const auto& scouting_probe : m_scouting_probes) {
-            if (DistanceSquared2D(scouting_probe->pos, pylon_pos) < DistanceSquared2D(closest_scouting_probe->pos, pylon_pos)) {
-                closest_scouting_probe = scouting_probe;
-            }
+    bool cybernetics_core_completed = false;
+    for (const auto& cybernetics_core : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE)) {
+        if (cybernetics_core->build_progress == 1) {
+            cybernetics_core_completed = true;
         }
-        Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::BUILD_PYLON, pylon_pos);
-        Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::MOVE, rotate_position(m_proxy_probe_hiding_pos, m_enemy_base_quadrant), true);
-        m_proxy_pylon_built = true;
-        return;
     }
 
-    if (m_proxy_pylon_completed && num_photon_cannons < m_proxy_cannon_positions.size() && num_minerals >= 150 && num_forges >= 1 && m_scouting_probes.size() > 0) {
-        Point2D cannon_pos = rotate_position(m_proxy_cannon_positions[num_photon_cannons], m_enemy_base_quadrant);
-        if (!Query()->Placement(ABILITY_ID::BUILD_PHOTONCANNON, cannon_pos)) {
-            return;
-        }
-        const Unit* closest_scouting_probe = m_scouting_probes.front();
-        for (const auto& scouting_probe : m_scouting_probes) {
-            if (DistanceSquared2D(scouting_probe->pos, cannon_pos) < DistanceSquared2D(closest_scouting_probe->pos, cannon_pos)) {
-                closest_scouting_probe = scouting_probe;
+    if (num_gateways > 0 && !m_proxy_pylon_built && m_enemy_base_scouted && num_minerals >= 100 && m_scouting_probes.size() >= 1) {
+        std::cout << "Build proxy pylon" << std::endl;
+        Point2D pylon_pos = rotate_position(m_proxy_pylon_positions.front(), m_enemy_base_quadrant);
+
+        for (const auto& pylon : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_PYLON)) {
+            if (DistanceSquared2D(pylon->pos, m_enemy_base_pos) < 5000) {
+                m_proxy_pylon_built = true;
+                return;
             }
         }
 
+        const Unit* closest_scouting_probe = GetClosestUnit(pylon_pos, m_scouting_probes);
+        for (const auto& order : closest_scouting_probe->orders) {
+            if (order.ability_id == ABILITY_ID::BUILD_PYLON) {
+                return;
+            }
+        }
+
+        if (Query()->Placement(ABILITY_ID::BUILD_PYLON, pylon_pos, closest_scouting_probe)) {
+            std::cout << "Build proxy pylon 2" << std::endl;
+            Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::BUILD_PYLON, pylon_pos);
+            //Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::MOVE, m_proxy_probe_hiding_pos, true);
+            return;
+        }
+    }
+
+    if (!m_proxy_cannon_built && m_proxy_pylon_completed && m_enemy_base_scouted && num_forges >= 1 && num_minerals >= 150 && m_scouting_probes.size() >= 1) {
+        std::cout << "Build proxy cannon" << std::endl;
+        Point2D cannon_pos = rotate_position(m_proxy_cannon_positions.front(), m_enemy_base_quadrant);
+
+        for (const auto& cannon : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_PHOTONCANNON)) {
+            if (DistanceSquared2D(cannon->pos, m_enemy_base_pos) < 5000) {
+                m_proxy_cannon_built = true;
+                return;
+            }
+        }
+
+        const Unit* closest_scouting_probe = GetClosestUnit(cannon_pos, m_scouting_probes);
         for (const auto& order : closest_scouting_probe->orders) {
             if (order.ability_id == ABILITY_ID::BUILD_PHOTONCANNON) {
                 return;
             }
         }
 
-        Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::BUILD_PHOTONCANNON, cannon_pos);
-        Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::MOVE, rotate_position(m_proxy_probe_hiding_pos, m_enemy_base_quadrant), true);
-        m_proxy_cannon_built = true;
-        return;
+        if (Query()->Placement(ABILITY_ID::BUILD_PHOTONCANNON, cannon_pos, closest_scouting_probe)) {
+            std::cout << "Build proxy cannon 2" << std::endl;
+            Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::BUILD_PHOTONCANNON, cannon_pos);
+            //Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::MOVE, m_proxy_probe_hiding_pos, true);
+            return;
+        }
+    }
+
+    if (!m_proxy_robo_built && m_proxy_pylon_completed && m_enemy_base_scouted && cybernetics_core_completed && num_minerals >= 150 && num_gas >= 100 && m_scouting_probes.size() >= 1) {
+        std::cout << "Build proxy robo" << std::endl;
+        Point2D robo_pos = rotate_position(m_proxy_robo_positions.front(), m_enemy_base_quadrant);
+
+        for (const auto& robo : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY)) {
+            if (DistanceSquared2D(robo->pos, m_enemy_base_pos) < 5000) {
+                m_proxy_robo_built = true;
+                return;
+            }
+        }
+
+        const Unit* closest_scouting_probe = GetClosestUnit(robo_pos, m_scouting_probes);
+        for (const auto& order : closest_scouting_probe->orders) {
+            if (order.ability_id == ABILITY_ID::BUILD_ROBOTICSFACILITY) {
+                return;
+            }
+        }
+
+        if (Query()->Placement(ABILITY_ID::BUILD_ROBOTICSFACILITY, robo_pos, closest_scouting_probe)) {
+            std::cout << "Build proxy robo 2" << std::endl;
+            Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::BUILD_ROBOTICSFACILITY, robo_pos);
+            //Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::MOVE, m_proxy_probe_hiding_pos, true);
+            return;
+        }
+    }
+
+    if (!m_proxy_shield_battery_built && m_enemy_base_scouted && num_robotics_facilities >= 1 && cybernetics_core_completed && num_minerals >= 150 && m_scouting_probes.size() >= 1) {
+        std::cout << "Build proxy shield battery" << std::endl;
+        Point2D shield_battery_pos = rotate_position(m_proxy_shield_battery_positions.front(), m_enemy_base_quadrant);
+
+        for (const auto& shield_battery : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_SHIELDBATTERY)) {
+            if (DistanceSquared2D(shield_battery->pos, m_enemy_base_pos) < 5000) {
+                m_proxy_shield_battery_built = true;
+                return;
+            }
+        }
+
+        const Unit* closest_scouting_probe = GetClosestUnit(shield_battery_pos, m_scouting_probes);
+        for (const auto& order : closest_scouting_probe->orders) {
+            if (order.ability_id == ABILITY_ID::BUILD_SHIELDBATTERY) {
+                return;
+            }
+        }
+
+        if (Query()->Placement(ABILITY_ID::BUILD_SHIELDBATTERY, shield_battery_pos, closest_scouting_probe)) {
+            std::cout << "Build proxy shield battery 2" << std::endl;
+            Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::BUILD_SHIELDBATTERY, shield_battery_pos);
+            //Actions()->UnitCommand(closest_scouting_probe, ABILITY_ID::MOVE, m_proxy_probe_hiding_pos, true);
+            return;
+        }
     }
 
     if (num_pylons >= 1 && num_forges < 1 && num_minerals >= 150) {
@@ -579,30 +665,20 @@ void BetaStar::OnStepBuildOrder()
         return;
     }
 
-    if (num_photon_cannons > 0 && (num_gateways + num_warpgates) > 0 && num_gases < 1 && num_minerals >= 75) {
+    if ((num_gateways + num_warpgates) > 0 && num_gases < 1 && num_minerals >= 75) {
         OnStepBuildGas();
         return;
     }
 
-    if (num_photon_cannons > 0 && num_gases > 0 && num_cybernetics_cores < 1 && num_minerals >= 150) {
+    if (num_gases < 2 && num_minerals >= 150) {
+        OnStepBuildGas();
+        return;
+    }
+
+    if (m_proxy_cannon_built && num_cybernetics_cores < 1 && num_minerals >= 150) {
         TryBuildStructureNearPylon(ABILITY_ID::BUILD_CYBERNETICSCORE, m_worker_typeid);
         return;
     }
-
-    //if (num_twilight_councils < 1 && num_cybernetics_cores > 0 && num_minerals >= 150 && num_gas >= 100) {
-    //    TryBuildStructureNearPylon(ABILITY_ID::BUILD_TWILIGHTCOUNCIL, m_worker_typeid);
-    //    return;
-    //}
-
-    if (num_cybernetics_cores > 0 && num_gases < 2 && num_minerals >= 75) {
-        OnStepBuildGas();
-        return;
-    }
-
-    //if (m_blink_researching && num_gases >= 2 && (num_gateways + num_warpgates) < 4 && num_minerals >= 150) {
-    //    TryBuildStructureNearPylon(ABILITY_ID::BUILD_GATEWAY, m_worker_typeid);
-    //    return;
-    //}
 }
 
 //Try to get upgrades depending on build
@@ -662,33 +738,6 @@ void BetaStar::OnStepResearchUpgrades() {
     if (!m_blink_researching) {
         TryResearchUpgrade(ABILITY_ID::RESEARCH_BLINK, UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
     }
-
-    //if (upgrades.empty()) {
-    //    TryResearchUpgrade(ABILITY_ID::RESEARCH_WARPGATE, UNIT_TYPEID::PROTOSS_CYBERNETICSCORE);
-    //}
-    //else {
-    //    for (const auto& upgrade : upgrades) {
-    //        if (upgrade == UPGRADE_ID::PROTOSSGROUNDWEAPONSLEVEL1 && base_count > 2) {
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDWEAPONS, UNIT_TYPEID::PROTOSS_FORGE);
-    //        }
-    //        else if (upgrade == UPGRADE_ID::PROTOSSGROUNDARMORSLEVEL1 && base_count > 2) {
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDARMOR, UNIT_TYPEID::PROTOSS_FORGE);
-    //        }
-    //        else if (upgrade == UPGRADE_ID::PROTOSSGROUNDWEAPONSLEVEL2 && base_count > 3) {
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDWEAPONS, UNIT_TYPEID::PROTOSS_FORGE);
-    //        }
-    //        else if (upgrade == UPGRADE_ID::PROTOSSGROUNDARMORSLEVEL2 && base_count > 3) {
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDARMOR, UNIT_TYPEID::PROTOSS_FORGE);
-    //        }
-    //        else {
-    //            //TryResearchUpgrade(ABILITY_ID::RESEARCH_EXTENDEDTHERMALLANCE, UNIT_TYPEID::PROTOSS_ROBOTICSBAY);
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_BLINK, UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
-    //            //TryResearchUpgrade(ABILITY_ID::RESEARCH_CHARGE, UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDWEAPONS, UNIT_TYPEID::PROTOSS_FORGE);
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDARMOR, UNIT_TYPEID::PROTOSS_FORGE);
-    //        }
-    //    }
-    //}
 }
 
 void BetaStar::OnStepBuildArmy()
@@ -705,72 +754,97 @@ void BetaStar::OnStepBuildArmy()
 
     Units cybernetics_cores = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE);
 
-    bool core_built = false;
-    for (const auto& core : cybernetics_cores) {
-        if (core->build_progress == 1) {
-            core_built = true;
-            break;
-        }
-    }
+    //bool core_built = false;
+    //for (const auto& core : cybernetics_cores) {
+    //    if (core->build_progress == 1) {
+    //        core_built = true;
+    //        break;
+    //    }
+    //}
 
-    if (twilight_councils.size() == 0) {
-        return;
-    }
+    //if (twilight_councils.size() == 0) {
+    //    return;
+    //}
 
-    if (core_built)
-    {
-        if (m_warpgate_researched && m_attacking)
-        {
-            for (const Unit *warpgate : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_WARPGATE))
-            {
-                if (WarpUnit(warpgate, m_enemy_base_pos, UNIT_TYPEID::PROTOSS_STALKER))
-                {
-                    num_minerals -= 125;
-                    num_gas -= 125;
+    for (const auto& robo : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY)) {
+        if (robo->build_progress == 1) {
+            if (robo->orders.size() == 0) {
+                if (num_minerals >= 275 && num_gas >= 100) {
+                    Actions()->UnitCommand(robo, ABILITY_ID::TRAIN_IMMORTAL);
+                    num_minerals -= 275;
+                    num_gas -= 100;
                 }
             }
         }
-
-        int num_built = (int)MassTrainUnit(UNIT_TYPEID::PROTOSS_STALKER);
-        num_minerals -= num_built * 125;
-        num_gas -= num_built * 50;
     }
+
+    //if (core_built)
+    //{
+    //    if (m_warpgate_researched && m_attacking)
+    //    {
+    //        for (const Unit *warpgate : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_WARPGATE))
+    //        {
+    //            if (WarpUnit(warpgate, m_enemy_base_pos, UNIT_TYPEID::PROTOSS_STALKER))
+    //            {
+    //                num_minerals -= 125;
+    //                num_gas -= 125;
+    //            }
+    //        }
+    //    }
+
+    //    int num_built = (int)MassTrainUnit(UNIT_TYPEID::PROTOSS_STALKER);
+    //    num_minerals -= num_built * 125;
+    //    num_gas -= num_built * 50;
+    //}
 }
 
 void BetaStar::OnStepManageArmy()
 {
-    // Switch to offensive mode. Trigger will be different for each strategy.
-    // TODO: Turn off offensive mode if it's going to lose us the match. 
-    switch (m_current_strategy)
-    {
-        case Strategy::Blink_Stalker_Rush:
-            if (!m_attacking && m_blink_researched && m_enemy_base_scouted && Observation()->GetArmyCount() >= 12) {
-                m_attacking = true;
-            }
-            break;
-        default:
-            if (!m_attacking && m_blink_researched && m_enemy_base_scouted && Observation()->GetArmyCount() >= 20) {
-                m_attacking = true;
-            }
-            break;
+
+    if (!m_attacking && CountUnitType(UNIT_TYPEID::PROTOSS_IMMORTAL) >= 3) {
+        m_attacking = true;
     }
 
-    // defend our base
-    if (!m_attacking) {
-        for (UNIT_TYPEID unitType : managed_unit_types)
-        {
-            BaseDefenseMacro(FriendlyUnitsOfType(unitType));
-        }
-    }
-    // attack enemy base
-    else
-    {
-        for (UNIT_TYPEID unitType : managed_unit_types)
-        {
-            EnemyBaseAttackMacro(FriendlyUnitsOfType(unitType));
+    if (m_attacking) {
+        for (const auto& immortal : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_IMMORTAL)) {
+            if (immortal->orders.size() == 0) {
+                Actions()->UnitCommand(immortal, ABILITY_ID::ATTACK, m_enemy_base_pos);
+            }
         }
     }
 
-    // This micro is always valid to perform
-    StalkerBlinkMicro();
+    //// Switch to offensive mode. Trigger will be different for each strategy.
+    //// TODO: Turn off offensive mode if it's going to lose us the match. 
+    //switch (m_current_strategy)
+    //{
+    //    case Strategy::Blink_Stalker_Rush:
+    //        if (!m_attacking && m_blink_researched && m_enemy_base_scouted && Observation()->GetArmyCount() >= 12) {
+    //            m_attacking = true;
+    //        }
+    //        break;
+    //    default:
+    //        if (!m_attacking && m_blink_researched && m_enemy_base_scouted && Observation()->GetArmyCount() >= 20) {
+    //            m_attacking = true;
+    //        }
+    //        break;
+    //}
+
+    //// defend our base
+    //if (!m_attacking) {
+    //    for (UNIT_TYPEID unitType : managed_unit_types)
+    //    {
+    //        BaseDefenseMacro(FriendlyUnitsOfType(unitType));
+    //    }
+    //}
+    //// attack enemy base
+    //else
+    //{
+    //    for (UNIT_TYPEID unitType : managed_unit_types)
+    //    {
+    //        EnemyBaseAttackMacro(FriendlyUnitsOfType(unitType));
+    //    }
+    //}
+
+    //// This micro is always valid to perform
+    //StalkerBlinkMicro();
 }

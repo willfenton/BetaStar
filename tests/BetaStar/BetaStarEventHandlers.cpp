@@ -20,6 +20,25 @@ void BetaStar::OnStep() {
         }
     }
 
+    //if (observation->GetGameLoop() % 100 == 0) {
+    //    for (const auto& building : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY)) {
+    //        std::cout << "Robo " << building->pos.x << " " << building->pos.y << std::endl;
+    //    }
+
+    //    for (const auto& building : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_PYLON)) {
+    //        std::cout << "Pylon " << building->pos.x << " " << building->pos.y << std::endl;
+    //    }
+
+    //    for (const auto& building : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_PHOTONCANNON)) {
+    //        std::cout << "Cannon " << building->pos.x << " " << building->pos.y << std::endl;
+    //    }
+
+    //    for (const auto& building : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_SHIELDBATTERY)) {
+    //        std::cout << "Shield Battery " << building->pos.x << " " << building->pos.y << std::endl;
+    //    }
+    //}
+
+
     // for finding positions of points
     //for (const auto& pylon : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_PYLON)) {
     //    std::cout << "(" << pylon->pos.x << "," << pylon->pos.y << ")" << std::endl;
@@ -32,21 +51,17 @@ void BetaStar::OnStep() {
 
     OnStepBuildPylons();
 
-    //OnStepBuildGas();
-
-    //OnStepExpand();
-
     OnStepManageWorkers();
 
     OnStepBuildArmy();
 
-    TrainBalancedArmy();
+    //TrainBalancedArmy();
 
     OnStepBuildOrder();
 
     OnStepManageArmy();
 
-    OnStepResearchUpgrades();
+    //OnStepResearchUpgrades();
 }
 
 void BetaStar::OnGameStart()
@@ -116,15 +131,36 @@ void BetaStar::OnUnitIdle(const Unit* unit)
 {
     switch (unit->unit_type.ToType()) {
 
-        //case UNIT_TYPEID::PROTOSS_PROBE: {
-        //    const Unit* target = FindResourceToGather(unit->pos);
-        //    Actions()->UnitCommand(unit, ABILITY_ID::HARVEST_GATHER, target);
-        //    break;
-        //}
+        case UNIT_TYPEID::PROTOSS_PROBE: {
+
+            for (const auto& scouting_probe : m_scouting_probes) {
+                if (unit->tag == scouting_probe->tag) {
+                    if (DistanceSquared2D(unit->pos, m_proxy_probe_hiding_pos) > 5) {
+                        Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_proxy_probe_hiding_pos);
+                    }
+                    break;
+                }
+            }
+            break;
+
+            //const Unit* target = FindResourceToGather(unit->pos);
+            //Actions()->UnitCommand(unit, ABILITY_ID::HARVEST_GATHER, target);
+            //break;
+        }
 
         default: {
             //std::cout << "Idle unit of type " << unit->unit_type.to_string() << std::endl;
             break;
+        }
+    }
+}
+
+void BetaStar::OnUnitCreated(const Unit* unit)
+{
+    switch (unit->unit_type.ToType()) {
+
+        case UNIT_TYPEID::PROTOSS_IMMORTAL: {
+            Actions()->UnitCommand(unit, ABILITY_ID::ATTACK, m_proxy_rally_point);
         }
     }
 }
@@ -134,21 +170,34 @@ void BetaStar::OnBuildingConstructionComplete(const Unit* unit)
     switch (unit->unit_type.ToType()) {
 
         case UNIT_TYPEID::PROTOSS_PYLON: {
-            if (!m_proxy_pylon_completed && DistanceSquared2D(unit->pos, rotate_position(m_proxy_pylon_pos, m_enemy_base_quadrant)) < 5) {
+            if (!m_proxy_pylon_completed && DistanceSquared2D(unit->pos, m_enemy_base_pos) < 5000) {
+                std::cout << "Proxy pylon completed" << std::endl;
                 m_proxy_pylon_completed = true;
             }
             break;
         }
 
         case UNIT_TYPEID::PROTOSS_PHOTONCANNON: {
-            if (!m_proxy_cannon_completed && DistanceSquared2D(unit->pos, rotate_position(m_proxy_cannon_positions[0], m_enemy_base_quadrant)) < 5) {
+            if (!m_proxy_cannon_completed && DistanceSquared2D(unit->pos, m_enemy_base_pos) < 5000) {
+                std::cout << "Proxy cannon completed" << std::endl;
                 m_proxy_cannon_completed = true;
             }
             break;
         }
 
-        case UNIT_TYPEID::PROTOSS_NEXUS: {
-            m_building_nexus = false;
+        case UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY: {
+            if (!m_proxy_robo_completed && DistanceSquared2D(unit->pos, m_enemy_base_pos) < 5000) {
+                std::cout << "Proxy robo completed" << std::endl;
+                m_proxy_robo_completed = true;
+            }
+            break;
+        }
+
+        case UNIT_TYPEID::PROTOSS_SHIELDBATTERY: {
+            if (!m_proxy_shield_battery_completed && DistanceSquared2D(unit->pos, m_enemy_base_pos) < 5000) {
+                std::cout << "Proxy shield battery completed" << std::endl;
+                m_proxy_shield_battery_completed = true;
+            }
             break;
         }
     }
@@ -175,6 +224,8 @@ void BetaStar::OnUnitEnterVision(const Unit* unit)
                     std::cout << "Enemy start location found: (" << closest_enemy_start_location.x << "," << closest_enemy_start_location.y << ")" << std::endl;
                     m_enemy_base_pos = closest_enemy_start_location;
                     m_enemy_base_quadrant = get_starting_position_of_point(m_enemy_base_pos);
+                    m_proxy_probe_hiding_pos = rotate_position(m_proxy_probe_hiding_pos, m_enemy_base_quadrant);
+                    m_proxy_rally_point = rotate_position(m_proxy_rally_point, m_enemy_base_quadrant);
                     m_enemy_base_scouted = true;
                 }
             }
@@ -182,7 +233,7 @@ void BetaStar::OnUnitEnterVision(const Unit* unit)
         if (m_enemy_base_scouted) {
             for (const auto& scouting_probe : m_scouting_probes) {
                 const_cast<Unit*>(scouting_probe)->orders.clear();
-                Actions()->UnitCommand(scouting_probe, ABILITY_ID::MOVE, rotate_position(Point2D(32, 81), m_enemy_base_quadrant));
+                Actions()->UnitCommand(scouting_probe, ABILITY_ID::MOVE, m_proxy_probe_hiding_pos);
             }
         }
     }

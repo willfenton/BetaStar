@@ -125,54 +125,6 @@ const Unit* BetaStar::FindResourceToGather(Point2D unit_pos) {
     return FindNearestNeutralUnit(unit_pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
 }
 
-// MOSTLY COPIED
-// CURRENTLY BROKEN
-// Expands to nearest location
-bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
-    const ObservationInterface* observation = Observation();
-
-    if (m_building_nexus || observation->GetMinerals() < 450 || NeedWorkers()) {
-        return false;
-    }
-
-    float minimum_distance = std::numeric_limits<float>::max();
-    Point3D closest_expansion;
-    for (const auto& expansion : search::CalculateExpansionLocations(Observation(), Query())) {
-        float current_distance = Distance2D(m_starting_pos, expansion);
-        if (current_distance < .01f) {
-            continue;
-        }
-
-        if (current_distance < minimum_distance) {
-            if (Query()->Placement(build_ability, expansion)) {
-                closest_expansion = expansion;
-                minimum_distance = current_distance;
-            }
-        }
-    }
-
-    const Unit* unit_to_build = nullptr;
-    Units units = observation->GetUnits(Unit::Alliance::Self);
-    for (const auto& unit : units) {
-        for (const auto& order : unit->orders) {
-            if (order.ability_id == build_ability) {
-                return false;
-            }
-        }
-
-        if (unit->unit_type == worker_type) {
-            unit_to_build = unit;
-        }
-    }
-
-    m_building_nexus = true;
-
-    // no need to wrap in AvailableAbilities query since we've checked mineral pre-reqs already
-    Actions()->UnitCommand(unit_to_build, build_ability, closest_expansion);
-
-    return true;
-}
-
 UnitTypeID BetaStar::GetUnitBuilder(UnitTypeID unitToBuild)
 {
     // TODO: Warp gates are not represented as a builder
@@ -654,6 +606,10 @@ void BetaStar::TryBuildStructureNearPylon(AbilityID ability_type_for_structure, 
         float rx = GetRandomScalar();
         float ry = GetRandomScalar();
         Point2D build_location = Point2D(random_power_source.position.x + rx * radius, random_power_source.position.y + ry * radius);
+
+        if (DistanceSquared2D(build_location, m_starting_pos) > 10000) {
+            continue;
+        }
 
         if (Query()->Placement(ability_type_for_structure, build_location)) {
             Units workers = FriendlyUnitsOfType(unit_type);
