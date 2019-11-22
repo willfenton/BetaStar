@@ -190,6 +190,7 @@ void BetaStar::EnemyBaseAttackMacro(const Units units)
     }
 }
 
+// FROM EXAMPLE BOT
 void BetaStar::StalkerBlinkMicro()
 {
     Units stalkers = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_STALKER);

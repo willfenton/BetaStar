@@ -7,7 +7,7 @@ using namespace sc2;
 // for things we want to compute each step which won't change until next step
 void BetaStar::OnStepComputeStatistics()
 {
-    //const ObservationInterface* observation = Observation();
+    const ObservationInterface* observation = Observation();
 
     // how much supply we have left
     //m_supply_left = (observation->GetFoodCap() - observation->GetFoodUsed());
@@ -152,7 +152,7 @@ void BetaStar::OnStepBuildPylons()
 
     if (pylons.size() < m_first_pylon_positions.size()) {
         pylon_pos = m_first_pylon_positions[pylons.size()];
-        pylon_pos = rotate_position(pylon_pos, m_starting_quadrant);
+        pylon_pos = RotatePosition(pylon_pos, m_starting_quadrant);
 
         // Add pylon to vector of placed pylon positions
         m_placed_pylon_positions.push_back(pylon_pos);
@@ -608,33 +608,6 @@ void BetaStar::OnStepResearchUpgrades() {
     if (!m_blink_researching) {
         TryResearchUpgrade(ABILITY_ID::RESEARCH_BLINK, UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
     }
-
-    //if (upgrades.empty()) {
-    //    TryResearchUpgrade(ABILITY_ID::RESEARCH_WARPGATE, UNIT_TYPEID::PROTOSS_CYBERNETICSCORE);
-    //}
-    //else {
-    //    for (const auto& upgrade : upgrades) {
-    //        if (upgrade == UPGRADE_ID::PROTOSSGROUNDWEAPONSLEVEL1 && base_count > 2) {
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDWEAPONS, UNIT_TYPEID::PROTOSS_FORGE);
-    //        }
-    //        else if (upgrade == UPGRADE_ID::PROTOSSGROUNDARMORSLEVEL1 && base_count > 2) {
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDARMOR, UNIT_TYPEID::PROTOSS_FORGE);
-    //        }
-    //        else if (upgrade == UPGRADE_ID::PROTOSSGROUNDWEAPONSLEVEL2 && base_count > 3) {
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDWEAPONS, UNIT_TYPEID::PROTOSS_FORGE);
-    //        }
-    //        else if (upgrade == UPGRADE_ID::PROTOSSGROUNDARMORSLEVEL2 && base_count > 3) {
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDARMOR, UNIT_TYPEID::PROTOSS_FORGE);
-    //        }
-    //        else {
-    //            //TryResearchUpgrade(ABILITY_ID::RESEARCH_EXTENDEDTHERMALLANCE, UNIT_TYPEID::PROTOSS_ROBOTICSBAY);
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_BLINK, UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
-    //            //TryResearchUpgrade(ABILITY_ID::RESEARCH_CHARGE, UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDWEAPONS, UNIT_TYPEID::PROTOSS_FORGE);
-    //            TryResearchUpgrade(ABILITY_ID::RESEARCH_PROTOSSGROUNDARMOR, UNIT_TYPEID::PROTOSS_FORGE);
-    //        }
-    //    }
-    //}
 }
 
 void BetaStar::OnStepBuildArmy()

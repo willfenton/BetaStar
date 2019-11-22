@@ -94,10 +94,6 @@ private:
 
     /* UTILITY FUNCTIONS */
 
-    bool TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type);
-
-    bool TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type, Tag location_tag);
-
     void TryBuildStructureNearPylon(AbilityID ability_type_for_structure, UnitTypeID unit_type);
 
     // Attempts to build buildingType near a random friendly Pylon.
@@ -122,15 +118,11 @@ private:
     //    Unit* builder: (Optional) A specific worker to use. Selects closest worker to intended build location otherwise.
     void TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, float maxRadius, Unit *builder = nullptr);
 
-    bool NeedWorkers();
-
     const Unit* FindNearestNeutralUnit(const Point2D& start, UnitTypeID target_unit_type);
 
     const Units FriendlyUnitsOfType(UnitTypeID unit_type) const;
 
     const Unit* FindResourceToGather(Point2D unit_pos);
-
-    bool TryExpand(AbilityID build_ability, UnitTypeID worker_type);
 
     // Returns the UnitTypeID of the unit that builds the specified unit
     // Example: Terran Command Center for SCV and SCV for Terran Command Center
@@ -220,7 +212,7 @@ private:
     Point3D m_starting_pos;
     int m_starting_quadrant;
 
-    std::vector<Point2D> m_first_pylon_positions = {Point2D(43, 34), Point2D(33, 43)};
+    std::vector<Point2D> m_first_pylon_positions = { Point2D(43, 34), Point2D(33, 43) };
     std::vector<Point2D> m_placed_pylon_positions;
 
     // Contains building position and ids to recreate when destroyed
@@ -228,77 +220,19 @@ private:
     std::vector<AbilityID> m_building_ids;
     std::vector<std::tuple<Point2D, AbilityID>> m_buildings;
 
+    // quadrants of the map
     enum starting_positions { SW, NW, NE, SE };
-    int get_starting_position_of_point(Point2D pos)
-    {
-        int starting_position = -1;
-        if (pos.x == 33.5 && pos.y == 33.5) {
-            starting_position = SW;
-        }
-        else if (pos.x == 33.5 && pos.y == 158.5) {
-            starting_position = NW;
-        }
-        else if (pos.x == 158.5 && pos.y == 158.5) {
-            starting_position = NE;
-        }
-        else if (pos.x == 158.5 && pos.y == 33.5) {
-            starting_position = SE;
-        }
-        else {
-            std::cerr << "Error in get_starting_position_of_point()" << std::endl;
-        }
-        return starting_position;
-    }
+
+    // return the quadrant of the map
+    int GetQuadrantByPoint(Point2D pos);
 
     // assumes points are in the south-west quadrant (x < 96, y < 96)
-    Point2D rotate_position(Point2D pos, int new_quadrant) {
-        Point2D new_pos(pos);
-        new_pos.x = new_pos.x - 96;
-        new_pos.y = new_pos.y - 96;
-        switch (new_quadrant) {
-            case (SW): {
-                break;
-            }
-            case (NW): {
-                for (int i = 0; i < 1; i++) {
-                    float x = new_pos.x;
-                    float y = new_pos.y;
-                    new_pos.x = y;
-                    new_pos.y = x * -1;
-                }
-                break;
-            }
-            case (NE): {
-                for (int i = 0; i < 2; i++) {
-                    float x = new_pos.x;
-                    float y = new_pos.y;
-                    new_pos.x = y;
-                    new_pos.y = x * -1;
-                }
-                break;
-            }
-            case (SE): {
-                for (int i = 0; i < 3; i++) {
-                    float x = new_pos.x;
-                    float y = new_pos.y;
-                    new_pos.x = y;
-                    new_pos.y = x * -1;
-                }
-                break;
-            }
-        }
-        new_pos.x = new_pos.x + 96;
-        new_pos.y = new_pos.y + 96;
-        return new_pos;
-    }
+    Point2D RotatePosition(Point2D pos, int new_quadrant);
 
     // position of enemy's starting base
     bool m_enemy_base_scouted = false;
     Point2D m_enemy_base_pos;
     int m_enemy_base_quadrant;
-
-    // how much supply we have left, updated each step
-    int m_supply_left = 0;
 
     bool m_warpgate_researching = false;
     bool m_warpgate_researched = false;
@@ -319,20 +253,21 @@ private:
     // all expansion locations
     std::vector<Point3D> m_expansion_locations;
 
+    // scouting
     const Unit* m_initial_scouting_probe;
 
     // common unit ids
-    const UnitTypeID m_base_typeid =               UNIT_TYPEID::PROTOSS_NEXUS;
-    const UnitTypeID m_worker_typeid =             UNIT_TYPEID::PROTOSS_PROBE;
-    const UnitTypeID m_supply_building_typeid =    UNIT_TYPEID::PROTOSS_PYLON;
-    const UnitTypeID m_gas_building_typeid =       UNIT_TYPEID::PROTOSS_ASSIMILATOR;
+    const UnitTypeID m_base_typeid = UNIT_TYPEID::PROTOSS_NEXUS;
+    const UnitTypeID m_worker_typeid = UNIT_TYPEID::PROTOSS_PROBE;
+    const UnitTypeID m_supply_building_typeid = UNIT_TYPEID::PROTOSS_PYLON;
+    const UnitTypeID m_gas_building_typeid = UNIT_TYPEID::PROTOSS_ASSIMILATOR;
 
     // common ability ids
-    const AbilityID m_base_building_abilityid =    ABILITY_ID::BUILD_NEXUS;
-    const AbilityID m_worker_train_abilityid =     ABILITY_ID::TRAIN_PROBE;
-    const AbilityID m_worker_gather_abilityid =    ABILITY_ID::HARVEST_GATHER;
-    const AbilityID m_supply_building_abilityid =  ABILITY_ID::BUILD_PYLON;
-    const AbilityID m_gas_building_abilityid =     ABILITY_ID::BUILD_ASSIMILATOR;
+    const AbilityID m_base_building_abilityid = ABILITY_ID::BUILD_NEXUS;
+    const AbilityID m_worker_train_abilityid = ABILITY_ID::TRAIN_PROBE;
+    const AbilityID m_worker_gather_abilityid = ABILITY_ID::HARVEST_GATHER;
+    const AbilityID m_supply_building_abilityid = ABILITY_ID::BUILD_PYLON;
+    const AbilityID m_gas_building_abilityid = ABILITY_ID::BUILD_ASSIMILATOR;
 
     // info about enemy
     Race enemy_race = Race::Random;
@@ -350,7 +285,7 @@ private:
     std::map<UNIT_TYPEID, float> army_ratios;
 
     // all unit types that we can manage by ratio
-    std::vector<UNIT_TYPEID> managed_unit_types{
+    std::vector<UNIT_TYPEID> managed_unit_types = {
         UNIT_TYPEID::PROTOSS_ADEPT,
         UNIT_TYPEID::PROTOSS_CARRIER,
         UNIT_TYPEID::PROTOSS_COLOSSUS,

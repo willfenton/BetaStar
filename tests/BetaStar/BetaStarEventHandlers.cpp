@@ -62,7 +62,7 @@ void BetaStar::OnGameStart()
 
     // get position of first command center
     m_starting_pos = observation->GetStartLocation();
-    m_starting_quadrant = get_starting_position_of_point(m_starting_pos);
+    m_starting_quadrant = GetQuadrantByPoint(m_starting_pos);
     std::cout << "Start location: (" << m_starting_pos.x << "," << m_starting_pos.y << ")" << std::endl;
 
     // calculate all expansion locations (this takes a while so we do it at the start of the game)
@@ -163,7 +163,7 @@ void BetaStar::OnUnitEnterVision(const Unit* unit)
         if (closest_distance < std::numeric_limits<float>::max()) {
             std::cout << "Enemy start location found: (" << closest_enemy_start_location.x << "," << closest_enemy_start_location.y << ")" << std::endl;
             m_enemy_base_pos = closest_enemy_start_location;
-            m_enemy_base_quadrant = get_starting_position_of_point(m_enemy_base_pos);
+            m_enemy_base_quadrant = GetQuadrantByPoint(m_enemy_base_pos);
             m_enemy_base_scouted = true;
             Actions()->UnitCommand(m_initial_scouting_probe, ABILITY_ID::MOVE, m_starting_pos);
         }
