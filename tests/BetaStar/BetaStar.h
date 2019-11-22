@@ -18,6 +18,22 @@ using namespace sc2;
 */
 class BetaStar : public Agent {
 public:
+    // Filter to use with GetUnit. Selects units that are buildings.
+    struct IsBuilding {
+        IsBuilding(UNIT_TYPEID type) : type_(type) {};
+        UNIT_TYPEID type_;
+        bool operator()(const Unit& unit) { return IsStructure(unit.unit_type); };
+    };
+
+    // Filter to use with GetUnit. Selects units that are within radius of point or unit.
+    struct IsNear {
+        IsNear(Unit *unit, float radius) : _pos(unit->pos), _radiusSquared(radius*radius) {};
+        IsNear(Point2D pos, float radius) : _pos(pos), _radiusSquared(radius*radius) {};
+        Point2D _pos;
+        float _radiusSquared;
+        bool operator()(const Unit &unit) { return DistanceSquared2D(unit.pos, _pos) <= _radiusSquared; }
+    };
+
     // Enumeration of our possible strategies
     enum Strategy
     {
@@ -84,6 +100,28 @@ private:
 
     void TryBuildStructureNearPylon(AbilityID ability_type_for_structure, UnitTypeID unit_type);
 
+    // Attempts to build buildingType near a random friendly Pylon.
+    // Parameters:
+    //    UnitTypeID buildingType: The type of building to produce.
+    //    Unit* builder: (Optional) A specific worker to use. Selects closest worker to intended build location otherwise.
+    // Returns true if successful, false otherwise.
+    bool TryBuildStructureNearPylon(UnitTypeID buildingType, Unit *builder = nullptr);
+
+    // Attempts to build buildingType near the closest pylon to nearPosition.
+    // Parameters:
+    //    UnitTypeID buildingType: The type of building to produce.
+    //    Point2D nearPosition: Will select the friendly pylon closest to this point as the one to build near.
+    //    Unit* builder: (Optional) A specific worker to use. Selects closest worker to intended build location otherwise.
+    void TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, Unit *builder = nullptr);
+
+    // Attempts to build buildingType near a random pylon within maxRadius of nearPosition.
+    // Parameters:
+    //    UnitTypeID buildingType: The type of building to produce.
+    //    Point2D nearPosition: Will select a random friendly pylon around this point as the one to build near.
+    //    float maxRadius: The distance from nearPosition to search for friendly pylons. Will select a random pylon from one of the ones found.
+    //    Unit* builder: (Optional) A specific worker to use. Selects closest worker to intended build location otherwise.
+    void TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, float maxRadius, Unit *builder = nullptr);
+
     bool NeedWorkers();
 
     const Unit* FindNearestNeutralUnit(const Point2D& start, UnitTypeID target_unit_type);
@@ -105,7 +143,7 @@ private:
     AbilityID GetUnitWarpAbility(UnitTypeID unitToWarp);
 
     // Returns true if unitType is a structure
-    bool IsStructure(UnitTypeID unitType);
+    static bool IsStructure(UnitTypeID unitType);
 
     // Attempts to train unit of unitType at random, valid building
     // Returns true if successful, false otherwise
