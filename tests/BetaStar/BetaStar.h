@@ -155,6 +155,9 @@ private:
     // Returns the average position of all provided units
     Point2D GetUnitsCentroid(const Units units);
 
+    // Returns the current game time, in seconds
+    float GetGameTime();
+
     /* COMBAT FUNCTIONS */
 
     // Macro actions to defend our base. Call first and override with micro.

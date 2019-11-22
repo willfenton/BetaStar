@@ -881,3 +881,8 @@ Point2D BetaStar::GetUnitsCentroid(const Units units)
 
     return centroid / (float)units.size();
 }
+
+float BetaStar::GetGameTime()
+{
+    return Observation()->GetGameLoop() / 22.4f;
+}
