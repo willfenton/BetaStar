@@ -28,8 +28,11 @@ void BetaStar::GatherIntelligence(const Unit *unit)
     // detect air units
     if (!has_flying && unit->is_flying)
     {
-        has_flying = true;
-        std::cout << "Enemy has flying units" << std::endl;
+        if (!all_unit_type_data[unit->unit_type].weapons.empty())
+        {
+            has_flying = true;
+            std::cout << "Enemy has flying units that can attack" << std::endl;
+        }
     }
 
     // detect cloaked units

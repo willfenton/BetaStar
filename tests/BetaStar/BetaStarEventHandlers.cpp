@@ -74,13 +74,13 @@ void BetaStar::OnGameStart()
     }*/
 
     // cache info about all SC2 units
-    all_unit_type_data = Observation()->GetUnitTypeData(true);
+    all_unit_type_data = observation->GetUnitTypeData(true);
     // cache info about all SC2 abilities
-    all_ability_data = Observation()->GetAbilityData(true);
+    all_ability_data = observation->GetAbilityData(true);
     // cache info about all SC2 upgrades
-    all_upgrades = Observation()->GetUpgradeData(true);
+    all_upgrades = observation->GetUpgradeData(true);
     // cache info about all SC2 buffs
-    all_buffs = Observation()->GetBuffData(true);
+    all_buffs = observation->GetBuffData(true);
 
     /* SCOUTING */
 
@@ -177,6 +177,17 @@ void BetaStar::OnUnitEnterVision(const Unit* unit)
 
 void BetaStar::OnUpgradeCompleted(UpgradeID upgrade_id)
 {
+    const ObservationInterface *observation = Observation();
+
+    // re-cache info about all SC2 units
+    all_unit_type_data = observation->GetUnitTypeData(true);
+    // re-cache info about all SC2 abilities
+    all_ability_data = observation->GetAbilityData(true);
+    // re-cache info about all SC2 upgrades
+    all_upgrades = observation->GetUpgradeData(true);
+    // re-cache info about all SC2 buffs
+    all_buffs = observation->GetBuffData(true);
+
     switch (upgrade_id.ToType()) {
         case UPGRADE_ID::WARPGATERESEARCH: {
             std::cout << "Warpgate research complete" << std::endl;
