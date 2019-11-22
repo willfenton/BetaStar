@@ -303,7 +303,7 @@ private:
     bool has_detection = false;
     bool building_near_our_base = false;
     bool rush_detected = false;
-    uint32_t last_detected_at_base_loop;
+    float last_detected_at_base_time;
     std::set<const Unit*> rush_units;
 
     // ratios for units in the army

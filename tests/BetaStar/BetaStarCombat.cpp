@@ -62,21 +62,18 @@ void BetaStar::GatherIntelligence(const Unit *unit)
 
         // Rush detection
 
-        //valid for roughly five minutes. After that, skip it
-        uint32_t maxRushTime = 10000;
-
+        //valid for maxRushTime seconds, after that, it's not a rush
+        float maxRushTime = 300.0f; // 300 seconds = 5 minutes
         //Each unit in a "rush" needs to be detected with less than this time elapsing between each sighting
-        // 320 steps should be roughly 10 seconds
-        uint32_t rushWindow = 320;
-
+        float rushWindow = 10.0f;
         // consider 5 early units as a rush (though we may want to increase this number)
         size_t rushNumber = 5;
 
-        uint32_t currentGameLoop = Observation()->GetGameLoop();
+        float currentTime = GetGameTime();
 
-        if (!rush_detected && currentGameLoop <= maxRushTime)
+        if (!rush_detected && currentTime <= maxRushTime)
         {
-            if (currentGameLoop >= last_detected_at_base_loop + 320)
+            if (currentTime >= last_detected_at_base_time + rushWindow)
             {
                 rush_units.clear();
             }
@@ -90,7 +87,7 @@ void BetaStar::GatherIntelligence(const Unit *unit)
                 std::cout << "Rush Detected" << std::endl;
             }
 
-            last_detected_at_base_loop = currentGameLoop;
+            last_detected_at_base_time = currentTime;
         }
     }
 }
