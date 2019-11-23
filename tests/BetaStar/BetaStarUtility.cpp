@@ -697,6 +697,36 @@ void BetaStar::TryBuildStructureNearPylon(AbilityID ability_type_for_structure, 
     }
 }
 
+bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Unit *builder = nullptr)
+{
+    const ObservationInterface *observation = Observation();
+
+    // Get all power sources (radius property differs from Unit radius property for pylons)
+    std::vector<PowerSource> powerSources = observation->GetPowerSources();
+    // Clean out Warp Prisms since we only want to build by pylons
+    for (auto iter = powerSources.begin(); iter != powerSources.end(); ++iter)
+    {
+        UnitTypeID testType = observation->GetUnit(iter->tag)->unit_type;
+        if (testType == UNIT_TYPEID::PROTOSS_WARPPRISM || testType == UNIT_TYPEID::PROTOSS_WARPPRISMPHASING)
+        {
+            powerSources.erase(iter);
+            --iter;
+        }
+    }
+
+    // no pylons on the map GG 
+    if (powerSources.empty())
+    {
+        return;
+    }
+
+    const PowerSource &chosenPylon = GetRandomEntry(powerSources);
+
+    Point2D buildPos = Point2D(chosenPylon.position.x + GetRandomScalar()*chosenPylon.radius, chosenPylon.y + GetRandomScalar()*chosenPylon.radius);
+
+    //TODO: Finish
+}
+
 void BetaStar::TryResearchUpgrade(AbilityID upgrade_abilityid, UnitTypeID building_type)
 {
     const ObservationInterface* observation = Observation();
