@@ -58,6 +58,20 @@ public:
         Cannon_Rush
     };
 
+    //Functor for sorting vector of enemy units by priority; used in EnemyBaseAttackMacro
+    // It uses the the GetUnitAttackPriority function which has to be non-stactic so this functor must be called with
+    // the argument "this"
+    struct IsHigherPriority {
+
+        BetaStar* CurrentBot;
+
+        IsHigherPriority(BetaStar* _CurrentBot) : CurrentBot(_CurrentBot) {}
+
+        inline bool operator() (Unit* unit1, Unit* unit2) { 
+            return CurrentBot->GetUnitAttackPriority(unit1) > CurrentBot->GetUnitAttackPriority(unit2);
+        }
+    };
+
     /* Static Functions (Can also be used in functors) */
 
     // Returns the UnitTypeID of the unit that builds the specified unit
@@ -225,6 +239,20 @@ private:
     // Returns the current game time, in seconds
     float GetGameTime();
 
+    //Return the targeting priority of a unit as an integer.
+    // The integer returned is: 
+    // Between 0 and 100 for structural units
+    // Between 100 and 200 for low priority units
+    // Between 200 and 300 for medium priority units
+    // Between 300 and 400 for high priority units
+    // The return value has been made to be a range so that we can vary priority values within the range if we like
+    int GetUnitAttackPriority(const Unit* unit);
+
+    //Helper functions for GetUnitAttackPriority
+    int GetProtossUnitAttackPriority(const Unit* unit);
+    int GetTerranUnitAttackPriority(const Unit* unit);
+    int GetZergUnitAttackPriority(const Unit* unit);
+
     /* COMBAT FUNCTIONS */
 
     // Macro actions to defend our base. Call first and override with micro.
@@ -339,6 +367,6 @@ private:
         UNIT_TYPEID::PROTOSS_WARPPRISM,
         UNIT_TYPEID::PROTOSS_ZEALOT
     };
-
+    
     Strategy m_current_strategy;
 };

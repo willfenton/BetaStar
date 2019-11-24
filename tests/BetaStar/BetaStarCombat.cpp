@@ -186,6 +186,8 @@ void BetaStar::EnemyBaseAttackMacro(const Units units)
     }
     else {
         // TODO: Replace with targeting micro
+        //Units enemy_units = Observation()->GetUnits(Unit::Alliance::Enemy);
+        //std::sort(std::begin(enemy_units), std::end(enemy_units), IsHigherPriority(this));
         Actions()->UnitCommand(units, ABILITY_ID::ATTACK, GetClosestUnit(GetUnitsCentroid(units), enemy_units)->pos);
     }
 }

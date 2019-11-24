@@ -1081,3 +1081,108 @@ bool BetaStar::AlmostEqual(Point2D lhs, Point2D rhs, Point2D threshold)
     Point2D diff = lhs - rhs;
     return abs(diff.x) <= threshold.x && abs(diff.y) <= threshold.y;
 }
+
+//Returns an integer:
+// Between 0 and 100 for structural units
+// Between 100 and 200 for low priority units
+// Between 200 and 300 for medium priority units
+// Between 300 and 400 for high priority units
+// The return value has been made to be a range so that we can vary priority values within the range if we like
+
+int BetaStar::GetUnitAttackPriority(const Unit* unit) {
+    switch (enemy_race) {
+    case Race::Protoss:
+        return GetProtossUnitAttackPriority(unit);
+    case Race::Terran:
+        return GetTerranUnitAttackPriority(unit);
+    case Race::Zerg:
+        return GetZergUnitAttackPriority(unit);
+    case Race::Random:
+        std::cout << "Enemy Race not yet detected";
+        return -1;
+    default:
+        std::cout << "Should not be reached";
+        return -2;
+    }
+}
+
+int BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
+    switch ((unit->unit_type).ToType()) {
+        //High Priority
+    case UNIT_TYPEID::PROTOSS_DARKTEMPLAR:
+    case UNIT_TYPEID::PROTOSS_WARPPRISM:
+    case UNIT_TYPEID::PROTOSS_MOTHERSHIP:
+        return 400;
+        //Medium Priority
+    case UNIT_TYPEID::PROTOSS_DISRUPTOR:
+    case UNIT_TYPEID::PROTOSS_HIGHTEMPLAR:
+    case UNIT_TYPEID::PROTOSS_SENTRY:
+    case UNIT_TYPEID::PROTOSS_PHOTONCANNON:
+        return 300;
+        //Explicitly Specified Low Priority Units
+    case UNIT_TYPEID::PROTOSS_ZEALOT:
+    case UNIT_TYPEID::PROTOSS_STALKER:
+    case UNIT_TYPEID::PROTOSS_OBSERVER:
+        return 200;
+    case UNIT_TYPEID::PROTOSS_PROBE:
+        return 150;
+    default:
+        //Priority for all other non-structural units is low at 200
+        if (!IsStructure(unit->unit_type)) return 200;
+        //Priority for Structures
+        else if (unit->unit_type.ToType() == UNIT_TYPEID::PROTOSS_PYLON) return 100; //Pylon = 100 (highest structure priority)
+        else return 50; //All structures besides plyons and photoncannons
+    }
+}
+
+int BetaStar::GetTerranUnitAttackPriority(const Unit* unit) {
+    switch ((unit->unit_type).ToType()) {
+        //High Priority
+    case UNIT_TYPEID::TERRAN_GHOST:
+    case UNIT_TYPEID::TERRAN_SIEGETANK:
+        return 400;
+        //Medium Priority - there are many of these for Terran; so medium priority units are given the default case
+        //Low Priority
+    case UNIT_TYPEID::TERRAN_MARINE:
+    case UNIT_TYPEID::TERRAN_MARAUDER:
+    case UNIT_TYPEID::TERRAN_REAPER:
+    case UNIT_TYPEID::PROTOSS_PHOTONCANNON:
+        return 200;
+    case UNIT_TYPEID::TERRAN_SCV:
+        return 150;
+    default:
+        //Medium Priority
+        //All non-structural units not listed above are given medium priority for now
+        if (!IsStructure(unit->unit_type)) return 300;
+        //Priority for Structures
+        //All Terran structures have same priority for now
+        return 100;
+    }
+}
+
+int BetaStar::GetZergUnitAttackPriority(const Unit* unit) {
+    switch ((unit->unit_type).ToType()) {
+        //High Priority
+    case UNIT_TYPEID::ZERG_BROODLORD:
+    case UNIT_TYPEID::ZERG_ULTRALISK:
+        return 400;
+        //Medium Priority
+    case UNIT_TYPEID::ZERG_VIPER:
+    case UNIT_TYPEID::ZERG_SWARMHOSTMP:
+    case UNIT_TYPEID::ZERG_INFESTOR:
+    case UNIT_TYPEID::ZERG_LURKERMP:
+        return 300;
+        //Explicitly Specified Low Priority Units
+    case UNIT_TYPEID::ZERG_OVERSEER:
+    case UNIT_TYPEID::ZERG_OVERLORD:
+        return 200;
+    case UNIT_TYPEID::ZERG_DRONE:
+        return 150;
+    default:
+        //Priority for all other non-structural units is low at 200
+        if (!IsStructure(unit->unit_type)) return 200;
+        //Priority for Structures
+        //All Zerg structures have same priority for now
+        return 100;
+    }
+}
