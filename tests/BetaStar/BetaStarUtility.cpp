@@ -234,7 +234,6 @@ void BetaStar::TryBuildStructureNearPylon(AbilityID ability_type_for_structure, 
         if (observation->GetUnit(random_power_source.tag)->unit_type == UNIT_TYPEID::PROTOSS_WARPPRISM) {
             continue;
         }
-==== BASE ====
 
         float radius = random_power_source.radius;
         float rx = GetRandomScalar();
