@@ -14,7 +14,7 @@ void BetaStar::OnStep() {
 
     if (m_warpgate_researched) {
         for (const auto& gateway : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_GATEWAY)) {
-            if (gateway->build_progress == 1 && gateway->orders.size() == 0) {
+            if (AlmostEqual(gateway->build_progress, 1.0f) && gateway->orders.size() == 0) {
                 Actions()->UnitCommand(gateway, ABILITY_ID::MORPH_WARPGATE);
             }
         }
@@ -39,8 +39,6 @@ void BetaStar::OnStep() {
     OnStepManageWorkers();
 
     OnStepBuildArmy();
-
-    TrainBalancedArmy();
 
     OnStepBuildOrder();
 

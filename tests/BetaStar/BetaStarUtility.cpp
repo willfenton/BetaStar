@@ -49,14 +49,28 @@ bool BetaStar::TrainUnit(UnitTypeID unitType)
 {
     const UnitTypeID unitBuilder = GetUnitBuilder(unitType);
 
-    Units buildings = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(unitBuilder));
+    // Only select unit production buildings that aren't doing anything right now
+    Units buildings = Observation()->GetUnits(Unit::Alliance::Self, BetterIsUnit(unitBuilder, HasNoOrders()));
     // warpgates = gateways, so we can build at them too
     if (unitBuilder == UNIT_TYPEID::PROTOSS_GATEWAY)
     {
-        Units warpgates = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(UNIT_TYPEID::PROTOSS_WARPGATE));
+        Units warpgates = Observation()->GetUnits(Unit::Alliance::Self, BetterIsUnit(UNIT_TYPEID::PROTOSS_WARPGATE, HasNoOrders()));
         if (!warpgates.empty())
         {
             buildings.insert(buildings.end(), warpgates.begin(), warpgates.end());
+        }
+    }
+
+    // can't build at buildings that aren't built yet
+    for (auto iter = buildings.begin(); iter != buildings.end(); )
+    {
+        if ((*iter)->build_progress < 1.0f)
+        {
+            iter = buildings.erase(iter);
+        }
+        else
+        {
+            ++iter;
         }
     }
 
@@ -282,7 +296,7 @@ void BetaStar::TryBuildStructureNearPylon(AbilityID ability_type_for_structure, 
     }
 }
 
-bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Unit *builder)
+bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, const Unit *builder)
 {
     const ObservationInterface *observation = Observation();
 
@@ -312,13 +326,16 @@ bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Unit *builder
     std::vector<PowerSource> powerSources = observation->GetPowerSources();
 
     // Clean out Warp Prisms since we only want to build by pylons
-    for (auto iter = powerSources.begin(); iter != powerSources.end(); ++iter)
+    for (auto iter = powerSources.begin(); iter != powerSources.end(); )
     {
         UnitTypeID testType = observation->GetUnit(iter->tag)->unit_type;
         if (testType == UNIT_TYPEID::PROTOSS_WARPPRISM || testType == UNIT_TYPEID::PROTOSS_WARPPRISMPHASING)
         {
-            powerSources.erase(iter);
-            --iter;
+            iter = powerSources.erase(iter);
+        }
+        else
+        {
+            ++iter;
         }
     }
 
@@ -342,7 +359,7 @@ bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Unit *builder
     return TryBuildStructure(buildingType, buildPos, builder);
 }
 
-bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, Unit *builder)
+bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, const Unit *builder)
 {
     const ObservationInterface *observation = Observation();
 
@@ -372,13 +389,16 @@ bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearP
     std::vector<PowerSource> powerSources = observation->GetPowerSources();
 
     // Clean out Warp Prisms since we only want to build by pylons
-    for (auto iter = powerSources.begin(); iter != powerSources.end(); ++iter)
+    for (auto iter = powerSources.begin(); iter != powerSources.end(); )
     {
         UnitTypeID testType = observation->GetUnit(iter->tag)->unit_type;
         if (testType == UNIT_TYPEID::PROTOSS_WARPPRISM || testType == UNIT_TYPEID::PROTOSS_WARPPRISMPHASING)
         {
-            powerSources.erase(iter);
-            --iter;
+            iter = powerSources.erase(iter);
+        }
+        else
+        {
+            ++iter;
         }
     }
 
@@ -414,7 +434,7 @@ bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearP
     return TryBuildStructure(buildingType, buildPos, builder);
 }
 
-bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, float maxRadius, Unit *builder)
+bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, float maxRadius, const Unit *builder)
 {
     const ObservationInterface *observation = Observation();
 
@@ -446,18 +466,20 @@ bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearP
     float radiusSqrd = maxRadius * maxRadius;
     // Clean out Warp Prisms since we only want to build by pylons
     // Also clean out pylons not within the specified radius
-    for (auto iter = powerSources.begin(); iter != powerSources.end(); ++iter)
+    for (auto iter = powerSources.begin(); iter != powerSources.end(); )
     {
         UnitTypeID testType = observation->GetUnit(iter->tag)->unit_type;
         if (testType == UNIT_TYPEID::PROTOSS_WARPPRISM || testType == UNIT_TYPEID::PROTOSS_WARPPRISMPHASING)
         {
-            powerSources.erase(iter);
-            --iter;
+            iter = powerSources.erase(iter);
         }
         else if (DistanceSquared2D(iter->position, nearPosition) > radiusSqrd)
         {
-            powerSources.erase(iter);
-            --iter;
+            iter = powerSources.erase(iter);
+        }
+        else
+        {
+            ++iter;
         }
     }
 
@@ -481,7 +503,7 @@ bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearP
     return TryBuildStructure(buildingType, buildPos, builder);
 }
 
-bool BetaStar::TryBuildStructure(UnitTypeID buildingType, Point2D buildPos, Unit *builder)
+bool BetaStar::TryBuildStructure(UnitTypeID buildingType, Point2D buildPos, const Unit *builder)
 {
     AbilityID buildAbility = GetUnitBuildAbility(buildingType);
 
@@ -489,12 +511,16 @@ bool BetaStar::TryBuildStructure(UnitTypeID buildingType, Point2D buildPos, Unit
     if (Query()->Placement(buildAbility, buildPos))
     {
         // The builder can't build there if they can't get there
-        if (Query()->PathingDistance(builder, buildPos) < 0.1f)
+        if (!AlmostEqual(Query()->PathingDistance(builder, buildPos), 0.0f))
         {
             // try to build the structure in the valid build location
             if (TryIssueCommand(builder, buildAbility, buildPos))
             {
-                m_buildings.push_back(std::make_tuple(buildPos, buildAbility));
+                // Pylons are managed in a different place
+                if (buildingType != m_supply_building_typeid)
+                {
+                    m_buildings.push_back(std::make_tuple(buildPos, buildAbility));
+                }
                 return true;
             }
         }
@@ -604,6 +630,9 @@ void BetaStar::SetStrategy(Strategy newStrategy)
     switch (newStrategy)
     {
         case Strategy::Blink_Stalker_Rush:
+            army_ratios[UNIT_TYPEID::PROTOSS_STALKER] = 1.0f;
+            break;
+        default:
             army_ratios[UNIT_TYPEID::PROTOSS_STALKER] = 1.0f;
             break;
     }
@@ -1040,4 +1069,15 @@ bool BetaStar::IsStructure(UnitTypeID unitType)
         default:
             return false;
     }
+}
+
+bool BetaStar::AlmostEqual(float lhs, float rhs, float threshold)
+{
+    return abs(lhs - rhs) <= threshold;
+}
+
+bool BetaStar::AlmostEqual(Point2D lhs, Point2D rhs, Point2D threshold)
+{
+    Point2D diff = lhs - rhs;
+    return abs(diff.x) <= threshold.x && abs(diff.y) <= threshold.y;
 }

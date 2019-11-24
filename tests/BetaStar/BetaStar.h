@@ -20,20 +20,35 @@ class BetaStar : public Agent {
 public:
     /* Nested Class/Struct/Enum Definitions */
 
-    // Filter to use with GetUnit. Selects units that are buildings.
+    // Filter to use with GetUnit. Selects units that are buildings. These can also all combine into one compound filter by passing one as an optional argument to the next.
+    struct BetterIsUnit {
+        BetterIsUnit(UNIT_TYPEID type, Filter filter = false) : _type(type), _filter(filter) {};
+        UNIT_TYPEID _type;
+        Filter _filter;
+        bool operator()(const Unit& unit) { return unit.unit_type == _type && (!_filter || _filter(unit)); };
+    };
+
     struct IsBuilding {
-        IsBuilding(UNIT_TYPEID type) : type_(type) {};
-        UNIT_TYPEID type_;
-        bool operator()(const Unit& unit) { return IsStructure(unit.unit_type); };
+        IsBuilding(UNIT_TYPEID type, Filter filter = false) : _type(type), _filter(filter) {};
+        UNIT_TYPEID _type;
+        Filter _filter;
+        bool operator()(const Unit& unit) { return IsStructure(unit.unit_type) && (!_filter || _filter(unit)); };
     };
 
     // Filter to use with GetUnit. Selects units that are within radius of point or unit.
     struct IsNear {
-        IsNear(Unit *unit, float radius) : _pos(unit->pos), _radiusSquared(radius*radius) {};
-        IsNear(Point2D pos, float radius) : _pos(pos), _radiusSquared(radius*radius) {};
+        IsNear(Unit *unit, float radius, Filter filter = false) : _pos(unit->pos), _radiusSquared(radius*radius), _filter(filter) {};
+        IsNear(Point2D pos, float radius, Filter filter = false) : _pos(pos), _radiusSquared(radius*radius), _filter(filter) {};
         Point2D _pos;
         float _radiusSquared;
-        bool operator()(const Unit &unit) { return DistanceSquared2D(unit.pos, _pos) <= _radiusSquared; }
+        Filter _filter;
+        bool operator()(const Unit &unit) { return DistanceSquared2D(unit.pos, _pos) <= _radiusSquared && (!_filter || _filter(unit)); }
+    };
+
+    struct HasNoOrders {
+        HasNoOrders(Filter filter = false) : _filter(filter) { }
+        Filter _filter;
+        bool operator()(const Unit& unit) { return unit.orders.empty() && (!_filter || _filter(unit)); }
     };
 
     // Enumeration of our possible strategies
@@ -58,6 +73,12 @@ public:
 
     // Returns true if unitType is a structure
     static bool IsStructure(UnitTypeID unitType);
+
+    // Account for floating point errors and such
+    static bool AlmostEqual(float lhs, float rhs, float threshold = 0.01f);
+
+    // Account for floating point errors and such in Point2D components
+    static bool AlmostEqual(Point2D lhs, Point2D rhs, Point2D threshold = Point2D(0.01f, 0.01f));
 
     /* API Callbacks */
 
@@ -120,7 +141,7 @@ private:
     //    UnitTypeID buildingType: The type of building to produce.
     //    Unit* builder: (Optional) A specific worker to use. Selects closest worker to intended build location otherwise.
     // Returns true if successful, false otherwise.
-    bool TryBuildStructureNearPylon(UnitTypeID buildingType, Unit *builder = nullptr);
+    bool TryBuildStructureNearPylon(UnitTypeID buildingType, const Unit *builder = nullptr);
 
     // Attempts to build buildingType near the closest pylon to nearPosition.
     // Parameters:
@@ -128,7 +149,7 @@ private:
     //    Point2D nearPosition: Will select the friendly pylon closest to this point as the one to build near.
     //    Unit* builder: (Optional) A specific worker to use. Selects closest worker to intended build location otherwise.
     // Returns true if successful, false otherwise.
-    bool TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, Unit *builder = nullptr);
+    bool TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, const Unit *builder = nullptr);
 
     // Attempts to build buildingType near a random pylon within maxRadius of nearPosition.
     // Parameters:
@@ -137,7 +158,7 @@ private:
     //    float maxRadius: The distance from nearPosition to search for friendly pylons. Will select a random pylon from one of the ones found.
     //    Unit* builder: (Optional) A specific worker to use. Selects closest worker to intended build location otherwise.
     // Returns true if successful, false otherwise.
-    bool TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, float maxRadius, Unit *builder = nullptr);
+    bool TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, float maxRadius, const Unit *builder = nullptr);
 
     // All TryBuildStructureNearPylon overloads resolve here. Attempts to build buildingType a position with builder.
     // Check to make sure the building will have power before using this method.
@@ -146,7 +167,7 @@ private:
     //    Point2D buildPos: The position to build at.
     //    Unit* builder: The specific worker to use for building.
     // Returns true if successful, false otherwise.
-    bool TryBuildStructure(UnitTypeID buildingType, Point2D buildPos, Unit *builder);
+    bool TryBuildStructure(UnitTypeID buildingType, Point2D buildPos, const Unit *builder);
 
     const Unit* FindNearestNeutralUnit(const Point2D& start, UnitTypeID target_unit_type);
 

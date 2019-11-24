@@ -32,11 +32,20 @@ void BetaStar::OnStepTrainWorkers()
         return;
     }
 
-    int sum_ideal_harvesters = 0;                         // ideal # of workers
+    int sum_ideal_harvesters = 3;                              // ideal # of workers (starting value is # of extra workers)
     int total_workers = (int)CountUnitType(m_worker_typeid);   // total # of workers (including those in training)
 
     const Units bases = FriendlyUnitsOfType(m_base_typeid);
     const Units gases = FriendlyUnitsOfType(m_gas_building_typeid);
+
+    // Workers actively harvesting gas don't show up when counting units
+    for (const Unit *unit : gases)
+    {
+        if (AlmostEqual(unit->build_progress, 1.0f) && unit->assigned_harvesters > 0)
+        {
+            ++total_workers;
+        }
+    }
 
     // compute base worker counts
     // compute number of workers being trained
@@ -147,15 +156,13 @@ void BetaStar::OnStepBuildPylons()
         return;
     }
 
-    // find a position where we can build the pylon
-    Point2D pylon_pos;
+    bool rebuilding = false;
 
+    // find a position where we can build the pylon
+    Point2D pylon_pos(0.0f, 0.0f);
     if (pylons.size() < m_first_pylon_positions.size()) {
         pylon_pos = m_first_pylon_positions[pylons.size()];
         pylon_pos = RotatePosition(pylon_pos, m_starting_quadrant);
-
-        // Add pylon to vector of placed pylon positions
-        m_placed_pylon_positions.push_back(pylon_pos);
     }
     else if (pylons.size() < m_placed_pylon_positions.size()) {
         // A pylon must have been destroyed, repair it
@@ -165,24 +172,30 @@ void BetaStar::OnStepBuildPylons()
                 //std::cout << "Pylon pos: (" << pylon_position.x << ", " << pylon_position.y << ")" << std::endl;
                 // Pylon destroyed, place new one here
                 pylon_pos = pylon_position;
+                rebuilding = true;
                 break;
             }
         }
     }
-    else {
+
+    // Seperated this from the if-else to troubleshoot a weird error where we're not building new pylons
+    if (AlmostEqual(pylon_pos, Vector2D(0.0f, 0.0f), Vector2D(0.01f, 0.01f))) {
         // if placement is invalid, try again next game loop to remove possibility of infinite loop
         float rx = GetRandomScalar();
         float ry = GetRandomScalar();
         pylon_pos = Point2D((worker_to_build->pos.x + (rx * 10.0f)), (worker_to_build->pos.y + (ry * 10.0f)));
-
-        // Add pylon to vector of placed pylon positions
-        m_placed_pylon_positions.push_back(pylon_pos);
     }
 
-    // build a pylon if the position is free
-    if (Query()->Placement(m_supply_building_abilityid, pylon_pos))
+    // Protects us from ghost pylons that never got built being added to m_placed_pylon_positions
+    // NOTE: We can still have eroneous positions added if the construction never starts, but the early exit condition if a pylon is being built
+    //       anywhere on the map should mitigate this issue.
+    if (TryBuildStructure(m_supply_building_typeid, pylon_pos, worker_to_build))
     {
-        Actions()->UnitCommand(worker_to_build, m_supply_building_abilityid, pylon_pos);
+        // Add pylon to vector of placed pylon positions
+        if (!rebuilding)
+        {
+            m_placed_pylon_positions.push_back(pylon_pos);
+        }
     }
 }
 
@@ -461,11 +474,6 @@ void BetaStar::OnStepManageWorkers()
 
     // iterate through workers, adding idle workers and workers on oversaturated resources to idle_workers
     for (const auto& worker : workers) {
-        // idle worker
-        if (worker->orders.size() == 0) {
-            idle_workers.push_back(worker);
-            continue;
-        }
         // check for working oversaturated resource
         for (const auto& order : worker->orders) {
             for (auto& uneven_resource : oversaturated) {
@@ -480,6 +488,12 @@ void BetaStar::OnStepManageWorkers()
                     continue;
                 }
             }
+        }
+
+        // idle worker (pushing them last gives them assignment priority)
+        if (worker->orders.size() == 0) {
+            idle_workers.push_back(worker);
+            continue;
         }
     }
 
@@ -509,7 +523,12 @@ void BetaStar::OnStepManageWorkers()
         }
     }
 
-    // maybe check here if there are still idle workers, reassign them?
+    // if there are still idle workers, reasign them to minerals since a few extra there doesn't hurt
+    for (const Unit *unit : idle_workers)
+    {
+        const Unit* mineral = FindNearestNeutralUnit(unit->pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
+        Actions()->UnitCommand(unit, m_worker_gather_abilityid, mineral);
+    }
 }
 
 void BetaStar::OnStepBuildOrder()
@@ -622,37 +641,15 @@ void BetaStar::OnStepBuildArmy()
 
     Units twilight_councils = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
 
-    Units cybernetics_cores = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE);
-
-    bool core_built = false;
-    for (const auto& core : cybernetics_cores) {
-        if (core->build_progress == 1) {
-            core_built = true;
-            break;
-        }
-    }
+    size_t coresBuilt = CountUnitType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE, false);
 
     if (twilight_councils.size() == 0) {
         return;
     }
 
-    if (core_built)
+    if (coresBuilt > 0)
     {
-        if (m_warpgate_researched && m_attacking)
-        {
-            for (const Unit *warpgate : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_WARPGATE))
-            {
-                if (WarpUnit(warpgate, m_enemy_base_pos, UNIT_TYPEID::PROTOSS_STALKER))
-                {
-                    num_minerals -= 125;
-                    num_gas -= 125;
-                }
-            }
-        }
-
-        int num_built = (int)MassTrainUnit(UNIT_TYPEID::PROTOSS_STALKER);
-        num_minerals -= num_built * 125;
-        num_gas -= num_built * 50;
+        TrainBalancedArmy();
     }
 }
 
