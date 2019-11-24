@@ -18,6 +18,8 @@ using namespace sc2;
 */
 class BetaStar : public Agent {
 public:
+    /* Nested Class/Struct/Enum Definitions */
+
     // Filter to use with GetUnit. Selects units that are buildings.
     struct IsBuilding {
         IsBuilding(UNIT_TYPEID type) : type_(type) {};
@@ -41,6 +43,23 @@ public:
         Blink_Stalker_Rush,
         Cannon_Rush
     };
+
+    /* Static Functions (Can also be used in functors) */
+
+    // Returns the UnitTypeID of the unit that builds the specified unit
+    // Example: Terran Command Center for SCV and SCV for Terran Command Center
+    static UnitTypeID GetUnitBuilder(UnitTypeID unitToBuild);
+
+    // Returns the AbilityID of the ability a builder will need to use to build the specified unit
+    static AbilityID GetUnitBuildAbility(UnitTypeID unitToBuild);
+
+    // Returns the AbilityID of the ability to warp in the specified unit at a warp gate
+    static AbilityID GetUnitWarpAbility(UnitTypeID unitToWarp);
+
+    // Returns true if unitType is a structure
+    static bool IsStructure(UnitTypeID unitType);
+
+    /* API Callbacks */
 
     // this function runs at the start of the game
     virtual void OnGameStart() final;
@@ -134,19 +153,6 @@ private:
     const Units FriendlyUnitsOfType(UnitTypeID unit_type) const;
 
     const Unit* FindResourceToGather(Point2D unit_pos);
-
-    // Returns the UnitTypeID of the unit that builds the specified unit
-    // Example: Terran Command Center for SCV and SCV for Terran Command Center
-    UnitTypeID GetUnitBuilder(UnitTypeID unitToBuild);
-
-    // Returns the AbilityID of the ability a builder will need to use to build the specified unit
-    AbilityID GetUnitBuildAbility(UnitTypeID unitToBuild);
-
-    // Returns the AbilityID of the ability to warp in the specified unit at a warp gate
-    AbilityID GetUnitWarpAbility(UnitTypeID unitToWarp);
-
-    // Returns true if unitType is a structure
-    static bool IsStructure(UnitTypeID unitType);
 
     // Attempts to train unit of unitType at random, valid building
     // Returns true if successful, false otherwise
