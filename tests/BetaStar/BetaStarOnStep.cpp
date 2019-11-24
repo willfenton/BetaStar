@@ -228,18 +228,20 @@ void BetaStar::OnStepBuildGas()
         return;
     }
 
+    //NOTE: Following saturation checks commented out because it can needlessly delay moving through the build order if,
+    //      for example, one worker is building/scouting so a resource is desaturated
+
     // if we are already building gas then return
     // if gas isn't saturated then return
-    for (const auto& gas : gases) {
+    /*for (const auto& gas : gases) {
         if (gas->build_progress != 1) {
             return;
         }
         if (gas->assigned_harvesters < gas->ideal_harvesters) {
             return;
         }
-    }
+    }*/
 
-    //NOTE: Commented out because it can needlessly delay moving through the build order if, for example, one worker is building/scouting so minerals are desaturated
     // if we don't have enough workers on minerals then return
     /*for (const auto& base : bases) {
         if (base->build_progress != 1) {
@@ -305,6 +307,7 @@ void BetaStar::OnStepBuildGas()
 
     // build gas (no need for additional checks since we've already checked to make sure we have the minerals)
     Actions()->UnitCommand(closest_worker, m_gas_building_abilityid, closest_geyser);
+    Actions()->UnitCommand(closest_worker, ABILITY_ID::MOVE, closest_geyser->pos, true);
 }
 
 // logic for building new bases
@@ -523,11 +526,14 @@ void BetaStar::OnStepManageWorkers()
         }
     }
 
-    // if there are still idle workers, reasign them to minerals since a few extra there doesn't hurt
+    // if there are still truly idle workers, reasign them to minerals since a few extra there doesn't hurt
     for (const Unit *unit : idle_workers)
     {
-        const Unit* mineral = FindNearestNeutralUnit(unit->pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
-        Actions()->UnitCommand(unit, m_worker_gather_abilityid, mineral);
+        if (unit->orders.empty())
+        {
+            const Unit* mineral = FindNearestNeutralUnit(unit->pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
+            Actions()->UnitCommand(unit, m_worker_gather_abilityid, mineral);
+        }
     }
 }
 
@@ -647,7 +653,7 @@ void BetaStar::OnStepBuildArmy()
         return;
     }
 
-    if (coresBuilt > 0)
+    if (coresBuilt > 0 && m_blink_researching)
     {
         TrainBalancedArmy();
     }
@@ -700,6 +706,8 @@ void BetaStar::OnStepChronoBoost()
 
     // minimum energy required to chrono boost
     float minEnergy = 50.0f;
+    // minimum energy we want to have before spending on certain chrono boosting
+    float minEnegyModerate = 25.0f;
     // minimum energy we want to have before spending some on non-essential chrono boosting
     float minEnergyStingy = 100.0f;
 
@@ -719,7 +727,7 @@ void BetaStar::OnStepChronoBoost()
         return;
     }
 
-    Units allUnits = Observation()->GetUnits(Unit::Alliance::Self);
+    Units allBuildings = Observation()->GetUnits(Unit::Alliance::Self, IsBuilding());
     // chrono boost lasts 20 seconds in the current game version, but we can't grab this with the current API
     // chrono boost performs 30 seconds of work, so this is how much time we want remaining for an optimal application
     float chronoBoostPseudoTime = 30.0f;
@@ -729,7 +737,7 @@ void BetaStar::OnStepChronoBoost()
     // highest priority is 3, lowest is 0, -1 is invalid
     int bestCandidatePriority = -1;
 
-    for (const Unit *unit : allUnits)
+    for (const Unit *unit : allBuildings)
     {
         // save some time since we'll never beat this priority
         if (bestCandidatePriority == 3)
@@ -737,81 +745,77 @@ void BetaStar::OnStepChronoBoost()
             break;
         }
 
-        // Chrono Boost only works on structures
-        if (IsStructure(unit->unit_type))
+        // if we don't find the buff, possibly apply it to this unit (281 is Chrono Boost)
+        if (std::find(unit->buffs.begin(), unit->buffs.end(), BuffID(281)) == unit->buffs.end())
         {
-            // if we don't find the buff, possibly apply it to this unit (281 is Chrono Boost)
-            if (std::find(unit->buffs.begin(), unit->buffs.end(), BuffID(281)) == unit->buffs.end())
+            for (UnitOrder order : unit->orders)
             {
-                for (UnitOrder order : unit->orders)
+                // buildings with research queues
+                if (bestCandidatePriority < 3 && maxEnergy >= minEnergy)
                 {
-                    // buildings with research queues
-                    if (bestCandidatePriority < 3 && maxEnergy >= minEnergy)
+                    // calculate how much research time this building still has to work through
+                    float totalRemainingTime = 0.0f;
+                    for (UpgradeData ud : all_upgrades)
                     {
-                        // calculate how much research time this building still has to work through
-                        float totalRemainingTime = 0.0f;
-                        for (UpgradeData ud : all_upgrades)
+                        if (ud.ability_id == order.ability_id)
                         {
-                            if (ud.ability_id == order.ability_id)
-                            {
-                                totalRemainingTime += ud.research_time * order.progress;
-                            }
+                            totalRemainingTime += ud.research_time * order.progress;
                         }
-                        // if we will fully utilize the chrono boost, apply it
-                        if (totalRemainingTime >= chronoBoostPseudoTime)
+                    }
+                    // if we will fully utilize the chrono boost, apply it
+                    if (totalRemainingTime >= chronoBoostPseudoTime)
+                    {
+                        bestChronoCandidate = unit;
+                        bestCandidatePriority = 3;
+                        break;
+                    }
+                }
+
+                // special case for a Nexus that's trying to build workers
+                if (bestCandidatePriority < 2 && maxEnergy >= minEnegyModerate)
+                {
+                    if (unit->unit_type == UNIT_TYPEID::PROTOSS_NEXUS)
+                    {
+                        if (m_worker_train_abilityid == order.ability_id)
                         {
                             bestChronoCandidate = unit;
-                            bestCandidatePriority = 3;
+                            bestCandidatePriority = 2;
                             break;
-                        }
-                    }
-
-                    // special case for a Nexus that's trying to build workers
-                    if (bestCandidatePriority < 2 && maxEnergy >= minEnergy)
-                    {
-                        if (unit->unit_type == UNIT_TYPEID::PROTOSS_NEXUS)
-                        {
-                            if (m_worker_train_abilityid == order.ability_id)
-                            {
-                                bestChronoCandidate = unit;
-                                bestCandidatePriority = 2;
-                                break;
-                            }
-                        }
-                    }
-
-                    // buildings with unit production queues
-                    // std::find with functor would likely be faster
-                    if (bestCandidatePriority < 1 && maxEnergy >= minEnergyStingy)
-                    {
-                        for (UnitTypeData utd : all_unit_type_data)
-                        {
-                            if (utd.ability_id == order.ability_id)
-                            {
-                                //totalRemainingTime += utd.build_time * order.progress;
-                                // our bot doesn't build real queues, so assume they're infinite as a workaround
-                                bestChronoCandidate = unit;
-                                bestCandidatePriority = 1;
-                                break;
-                            }
                         }
                     }
                 }
 
-                // computationally expensive solution for warpgate chrono (don't think there's a way to do it without a query)
-                if (bestCandidatePriority < 0 && maxEnergy >= minEnergyStingy)
+                // buildings with unit production queues
+                // std::find with functor would likely be faster
+                if (bestCandidatePriority < 1 && maxEnergy >= minEnergyStingy)
                 {
-                    if (unit->unit_type == UNIT_TYPEID::PROTOSS_WARPGATE)
+                    for (UnitTypeData utd : all_unit_type_data)
                     {
-                        size_t abilityCount = Query()->GetAbilitiesForUnit(unit, true).abilities.size();
-                        size_t availableCount = Query()->GetAbilitiesForUnit(unit).abilities.size();
-
-                        // can't check cooldowns, so assume we'll be building as soon as it's off cooldown (== infinite queue)
-                        if (abilityCount != availableCount)
+                        if (utd.ability_id == order.ability_id)
                         {
+                            //totalRemainingTime += utd.build_time * order.progress;
+                            // our bot doesn't build real queues, so assume they're infinite as a workaround
                             bestChronoCandidate = unit;
                             bestCandidatePriority = 1;
+                            break;
                         }
+                    }
+                }
+            }
+
+            // computationally expensive solution for warpgate chrono (don't think there's a way to do it without a query)
+            if (bestCandidatePriority < 0 && maxEnergy >= minEnergyStingy)
+            {
+                if (unit->unit_type == UNIT_TYPEID::PROTOSS_WARPGATE)
+                {
+                    size_t abilityCount = Query()->GetAbilitiesForUnit(unit, true).abilities.size();
+                    size_t availableCount = Query()->GetAbilitiesForUnit(unit).abilities.size();
+
+                    // can't check cooldowns, so assume we'll be building as soon as it's off cooldown (== infinite queue)
+                    if (abilityCount != availableCount)
+                    {
+                        bestChronoCandidate = unit;
+                        bestCandidatePriority = 1;
                     }
                 }
             }

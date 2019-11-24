@@ -29,8 +29,7 @@ public:
     };
 
     struct IsBuilding {
-        IsBuilding(UNIT_TYPEID type, Filter filter = false) : _type(type), _filter(filter) {};
-        UNIT_TYPEID _type;
+        IsBuilding(Filter filter = false) : _filter(filter) {};
         Filter _filter;
         bool operator()(const Unit& unit) { return IsStructure(unit.unit_type) && (!_filter || _filter(unit)); };
     };
