@@ -307,6 +307,7 @@ void BetaStar::OnStepBuildGas()
 
     // build gas (no need for additional checks since we've already checked to make sure we have the minerals)
     Actions()->UnitCommand(closest_worker, m_gas_building_abilityid, closest_geyser);
+    // "Unsticks" probes that just built an assimilator and are waiting to harvest gas
     Actions()->UnitCommand(closest_worker, ABILITY_ID::MOVE, closest_geyser->pos, true);
 }
 
@@ -418,7 +419,6 @@ struct UnevenResource
 
 // Move workers from oversaturated resources to undersaturated resources
 // Also gives orders to idle workers
-// BUG: doesn't seem to catch workers who built assimilators, they wait around until it's done and then start working there
 // This could probably be set to run every couple steps instead of every step
 void BetaStar::OnStepManageWorkers()
 {

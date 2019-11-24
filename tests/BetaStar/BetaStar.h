@@ -36,7 +36,7 @@ public:
 
     // Filter to use with GetUnit. Selects units that are within radius of point or unit.
     struct IsNear {
-        IsNear(Unit *unit, float radius, Filter filter = false) : _pos(unit->pos), _radiusSquared(radius*radius), _filter(filter) {};
+        IsNear(const Unit *unit, float radius, Filter filter = false) : _pos(unit->pos), _radiusSquared(radius*radius), _filter(filter) {};
         IsNear(Point2D pos, float radius, Filter filter = false) : _pos(pos), _radiusSquared(radius*radius), _filter(filter) {};
         Point2D _pos;
         float _radiusSquared;
