@@ -217,7 +217,7 @@ size_t BetaStar::MassTrainUnit(UnitTypeID unitType)
     return buildCount;
 }
 
-void BetaStar::TryBuildStructureNearPylon(AbilityID ability_type_for_structure, UnitTypeID unit_type = UNIT_TYPEID::PROTOSS_PROBE) {
+void BetaStar::TryBuildStructureNearPylon(AbilityID ability_type_for_structure, UnitTypeID unit_type) {
     const ObservationInterface* observation = Observation();
 
     std::vector<PowerSource> power_sources = observation->GetPowerSources();
@@ -230,10 +230,11 @@ void BetaStar::TryBuildStructureNearPylon(AbilityID ability_type_for_structure, 
 
     for (int i = 0; i < num_tries; ++i) {
         const PowerSource& random_power_source = GetRandomEntry(power_sources);
-
+        
         if (observation->GetUnit(random_power_source.tag)->unit_type == UNIT_TYPEID::PROTOSS_WARPPRISM) {
             continue;
         }
+==== BASE ====
 
         float radius = random_power_source.radius;
         float rx = GetRandomScalar();
@@ -280,6 +281,228 @@ void BetaStar::TryBuildStructureNearPylon(AbilityID ability_type_for_structure, 
             return;
         }
     }
+}
+
+bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Unit *builder)
+{
+    const ObservationInterface *observation = Observation();
+
+    AbilityID buildAbility = GetUnitBuildAbility(buildingType);
+
+    Units allBuilders = FriendlyUnitsOfType(m_worker_typeid);
+
+    // We don't have any workers. GG.
+    if (allBuilders.empty())
+    {
+        return false;
+    }
+
+    // Don't try to build another building until the current one is finished
+    for (const Unit *unit : allBuilders)
+    {
+        for (UnitOrder order : unit->orders)
+        {
+            if (order.ability_id == buildAbility)
+            {
+                return false;
+            }
+        }
+    }
+
+    // Get all power sources (radius property differs from Unit radius property for pylons)
+    std::vector<PowerSource> powerSources = observation->GetPowerSources();
+
+    // Clean out Warp Prisms since we only want to build by pylons
+    for (auto iter = powerSources.begin(); iter != powerSources.end(); ++iter)
+    {
+        UnitTypeID testType = observation->GetUnit(iter->tag)->unit_type;
+        if (testType == UNIT_TYPEID::PROTOSS_WARPPRISM || testType == UNIT_TYPEID::PROTOSS_WARPPRISMPHASING)
+        {
+            powerSources.erase(iter);
+            --iter;
+        }
+    }
+
+    // no pylons on the map. GG.
+    if (powerSources.empty())
+    {
+        return false;
+    }
+
+    const PowerSource &chosenPylon = GetRandomEntry(powerSources);
+
+    Point2D buildPos = Point2D(chosenPylon.position.x + GetRandomScalar()*chosenPylon.radius, chosenPylon.position.y + GetRandomScalar()*chosenPylon.radius);
+
+    // if we don't have a builder selected, get the closest worker
+    if (builder == nullptr)
+    {
+        GetClosestUnit(buildPos, allBuilders);
+    }
+
+    // We have everything we need to attempt construction
+    return TryBuildStructure(buildingType, buildPos, builder);
+}
+
+bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, Unit *builder)
+{
+    const ObservationInterface *observation = Observation();
+
+    AbilityID buildAbility = GetUnitBuildAbility(buildingType);
+
+    Units allBuilders = FriendlyUnitsOfType(m_worker_typeid);
+
+    // We don't have any workers. GG.
+    if (allBuilders.empty())
+    {
+        return false;
+    }
+
+    // Don't try to build another building until the current one is finished
+    for (const Unit *unit : allBuilders)
+    {
+        for (UnitOrder order : unit->orders)
+        {
+            if (order.ability_id == buildAbility)
+            {
+                return false;
+            }
+        }
+    }
+
+    // Get all power sources (radius property differs from Unit radius property for pylons)
+    std::vector<PowerSource> powerSources = observation->GetPowerSources();
+
+    // Clean out Warp Prisms since we only want to build by pylons
+    for (auto iter = powerSources.begin(); iter != powerSources.end(); ++iter)
+    {
+        UnitTypeID testType = observation->GetUnit(iter->tag)->unit_type;
+        if (testType == UNIT_TYPEID::PROTOSS_WARPPRISM || testType == UNIT_TYPEID::PROTOSS_WARPPRISMPHASING)
+        {
+            powerSources.erase(iter);
+            --iter;
+        }
+    }
+
+    // no pylons on the map. GG.
+    if (powerSources.empty())
+    {
+        return false;
+    }
+
+    size_t minIndex = 0;
+    float minDistSqrd = DistanceSquared2D(powerSources[minIndex].position, nearPosition);
+    for (size_t index = 1; index < powerSources.size(); ++index)
+    {
+        float testDistSqrd = DistanceSquared2D(powerSources[index].position, nearPosition);
+        if (testDistSqrd < minDistSqrd)
+        {
+            minIndex = index;
+            minDistSqrd = testDistSqrd;
+        }
+    }
+
+    const PowerSource &chosenPylon = powerSources[minIndex];
+
+    Point2D buildPos = Point2D(chosenPylon.position.x + GetRandomScalar()*chosenPylon.radius, chosenPylon.position.y + GetRandomScalar()*chosenPylon.radius);
+
+    // if we don't have a builder selected, get the closest worker
+    if (builder == nullptr)
+    {
+        GetClosestUnit(buildPos, allBuilders);
+    }
+
+    // We have everything we need to attempt construction
+    return TryBuildStructure(buildingType, buildPos, builder);
+}
+
+bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, float maxRadius, Unit *builder)
+{
+    const ObservationInterface *observation = Observation();
+
+    AbilityID buildAbility = GetUnitBuildAbility(buildingType);
+
+    Units allBuilders = FriendlyUnitsOfType(m_worker_typeid);
+
+    // We don't have any workers. GG.
+    if (allBuilders.empty())
+    {
+        return false;
+    }
+
+    // Don't try to build another building until the current one is finished
+    for (const Unit *unit : allBuilders)
+    {
+        for (UnitOrder order : unit->orders)
+        {
+            if (order.ability_id == buildAbility)
+            {
+                return false;
+            }
+        }
+    }
+
+    // Get all power sources (radius property differs from Unit radius property for pylons)
+    std::vector<PowerSource> powerSources = observation->GetPowerSources();
+
+    float radiusSqrd = maxRadius * maxRadius;
+    // Clean out Warp Prisms since we only want to build by pylons
+    // Also clean out pylons not within the specified radius
+    for (auto iter = powerSources.begin(); iter != powerSources.end(); ++iter)
+    {
+        UnitTypeID testType = observation->GetUnit(iter->tag)->unit_type;
+        if (testType == UNIT_TYPEID::PROTOSS_WARPPRISM || testType == UNIT_TYPEID::PROTOSS_WARPPRISMPHASING)
+        {
+            powerSources.erase(iter);
+            --iter;
+        }
+        else if (DistanceSquared2D(iter->position, nearPosition) > radiusSqrd)
+        {
+            powerSources.erase(iter);
+            --iter;
+        }
+    }
+
+    // no valid pylons
+    if (powerSources.empty())
+    {
+        return false;
+    }
+
+    const PowerSource &chosenPylon = GetRandomEntry(powerSources);
+
+    Point2D buildPos = Point2D(chosenPylon.position.x + GetRandomScalar()*chosenPylon.radius, chosenPylon.position.y + GetRandomScalar()*chosenPylon.radius);
+
+    // if we don't have a builder selected, get the closest worker
+    if (builder == nullptr)
+    {
+        GetClosestUnit(buildPos, allBuilders);
+    }
+
+    // We have everything we need to attempt construction
+    return TryBuildStructure(buildingType, buildPos, builder);
+}
+
+bool BetaStar::TryBuildStructure(UnitTypeID buildingType, Point2D buildPos, Unit *builder)
+{
+    AbilityID buildAbility = GetUnitBuildAbility(buildingType);
+
+    // Test building placement at that location to make sure nothing is in the way
+    if (Query()->Placement(buildAbility, buildPos))
+    {
+        // The builder can't build there if they can't get there
+        if (Query()->PathingDistance(builder, buildPos) < 0.1f)
+        {
+            // try to build the structure in the valid build location
+            if (TryIssueCommand(builder, buildAbility, buildPos))
+            {
+                m_buildings.push_back(std::make_tuple(buildPos, buildAbility));
+                return true;
+            }
+        }
+    }
+
+    // Couldn't build
+    return false;
 }
 
 void BetaStar::TryResearchUpgrade(AbilityID upgrade_abilityid, UnitTypeID building_type)

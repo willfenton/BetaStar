@@ -94,7 +94,11 @@ private:
 
     /* UTILITY FUNCTIONS */
 
-    void TryBuildStructureNearPylon(AbilityID ability_type_for_structure, UnitTypeID unit_type);
+    bool TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type);
+
+    bool TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type, Tag location_tag);
+
+    void TryBuildStructureNearPylon(AbilityID ability_type_for_structure, UnitTypeID unit_type = UNIT_TYPEID::PROTOSS_PROBE);
 
     // Attempts to build buildingType near a random friendly Pylon.
     // Parameters:
@@ -108,7 +112,8 @@ private:
     //    UnitTypeID buildingType: The type of building to produce.
     //    Point2D nearPosition: Will select the friendly pylon closest to this point as the one to build near.
     //    Unit* builder: (Optional) A specific worker to use. Selects closest worker to intended build location otherwise.
-    void TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, Unit *builder = nullptr);
+    // Returns true if successful, false otherwise.
+    bool TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, Unit *builder = nullptr);
 
     // Attempts to build buildingType near a random pylon within maxRadius of nearPosition.
     // Parameters:
@@ -116,7 +121,17 @@ private:
     //    Point2D nearPosition: Will select a random friendly pylon around this point as the one to build near.
     //    float maxRadius: The distance from nearPosition to search for friendly pylons. Will select a random pylon from one of the ones found.
     //    Unit* builder: (Optional) A specific worker to use. Selects closest worker to intended build location otherwise.
-    void TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, float maxRadius, Unit *builder = nullptr);
+    // Returns true if successful, false otherwise.
+    bool TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, float maxRadius, Unit *builder = nullptr);
+
+    // All TryBuildStructureNearPylon overloads resolve here. Attempts to build buildingType a position with builder.
+    // Check to make sure the building will have power before using this method.
+    // Parameters:
+    //    UnitTypeID buildingType: The type of building to produce.
+    //    Point2D buildPos: The position to build at.
+    //    Unit* builder: The specific worker to use for building.
+    // Returns true if successful, false otherwise.
+    bool TryBuildStructure(UnitTypeID buildingType, Point2D buildPos, Unit *builder);
 
     const Unit* FindNearestNeutralUnit(const Point2D& start, UnitTypeID target_unit_type);
 
