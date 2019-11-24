@@ -94,10 +94,6 @@ private:
 
     /* UTILITY FUNCTIONS */
 
-    bool TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type);
-
-    bool TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type, Tag location_tag);
-
     void TryBuildStructureNearPylon(AbilityID ability_type_for_structure, UnitTypeID unit_type = UNIT_TYPEID::PROTOSS_PROBE);
 
     // Attempts to build buildingType near a random friendly Pylon.
