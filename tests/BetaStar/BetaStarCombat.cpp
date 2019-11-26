@@ -144,6 +144,9 @@ void BetaStar::BaseDefenseMacro(const Units units)
     }
 }
 
+//Note that our current targeting strategy is to attack the highest priority unit. If there is a tie we attack the closest
+//highest priority unit. We also ensure that units that cannot attack flying units, get to attack the highest priority and
+//closest ground enemy unit if such an enemy unit exists
 void BetaStar::EnemyBaseAttackMacro(const Units units)
 {
     Units enemy_units = Observation()->GetUnits(Unit::Alliance::Enemy);
@@ -184,55 +187,76 @@ void BetaStar::EnemyBaseAttackMacro(const Units units)
             Actions()->UnitCommand(units, ABILITY_ID::ATTACK, m_enemy_base_pos);
         }
     }
-    else {
-        // TODO: Replace with targeting micro
+    else { //Note: Now we know that enemy_units is non-empty in this block of code
+
+        // TODO: Replace with targeting micro   Done?
+
+        //Sort Enemy Units By Targeting Priority
         std::sort(std::begin(enemy_units), std::end(enemy_units), IsHigherPriority(this));
 
+        //Find all enemy units with the highest priority
         Units HighestPriorityUnits;
-        HighestPriorityUnits.push_back(enemy_units[0]);
+        //The first entry in the enemy_units vector after sorting is one of the highest priority
+        HighestPriorityUnits.push_back(enemy_units[0]); //valid since enemy_units is non-empty;
+        //Find its priority level
         int HighestPriorityLevel = GetUnitAttackPriority(enemy_units[0]);
-        for (const Unit* en_unit : enemy_units) {
+        //Find all other units with same priority level (should be at the beginning of sorted enemy_units vector)
+        for (const Unit* en_unit : enemy_units) { 
             if (GetUnitAttackPriority(en_unit) == HighestPriorityLevel) {
                 HighestPriorityUnits.push_back(en_unit);
             }
         }
 
+        //Find all highest priority ground enemy units 
         Units HighestGroundPriorityUnits;
         int HighestGroundPriorityLevel;
         bool HighestGroundPriroityLevelFound = false;
+        //Iterate through all enemy units
         for (const Unit* en_unit : enemy_units) {
+            //If we havent found any ground unit while going down this sorted vector
             if (HighestGroundPriroityLevelFound == false) {
+                //If we find a ground unit
                 if (en_unit->is_flying == false) {
                     HighestGroundPriroityLevelFound = true;
+                    //Set the highest priority level for ground units to be its priority level
                     HighestGroundPriorityLevel = GetUnitAttackPriority(en_unit);
+                    //Add it to the HighestGroundPriorityUnits vector
                     HighestGroundPriorityUnits.push_back(en_unit);
                 }
             }
+            //If we have found one of the highest priority ground units
             else {
-                if (GetUnitAttackPriority(en_unit) == HighestGroundPriorityLevel) {
+                //If this unit is also ground unit and also has same priority as the highest ground priority level
+                if (en_unit->is_flying == false && GetUnitAttackPriority(en_unit) == HighestGroundPriorityLevel) {
+                    //Add it to the HighestGroundPriorityUnits vector
                      HighestGroundPriorityUnits.push_back(en_unit);
                 }
             }
         }
 
+        //Note that while HighestPriorityUnits vector is guarenteed to be non-empty (since enemy_units is non-empty).
+        // HighestGroundPriorityUnits is not guarenteed to be non-empty
+        //To ensure that this does not cause a runtime error, we have the units that cannot attack ground units "attack"
+        //some flying unit's location though this does not have any effect on the flying unit
         if (HighestGroundPriorityUnits.empty()) {
             HighestGroundPriorityUnits.push_back(HighestPriorityUnits[0]);
         }
 
-
+        //Iterate through all our units that are on offence
         for (const Unit* myUnit : units) {
+            //If the unit can attack flying units, then attack the closest highest priority unit
             if (CanAttackAirUnits(myUnit)) {
                 const Unit* UnitToAttack = GetClosestUnit(myUnit->pos, HighestPriorityUnits);
                 Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, UnitToAttack->pos);
-                //std::cout << "Can Attack Flying Units" << " Attacking: " << UnitToAttack->unit_type;
             }
+            //If the unit can't attack flying units, teh attack the closest highest priority ground unit
             else {
-                Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, GetClosestUnit(myUnit->pos, HighestGroundPriorityUnits)->pos);
-                //std::cout << "CanNOT Attack Flying Units" << " Attacking: " << UnitToAttack->unit_type;
+                const Unit* GroundUnitToAttack = GetClosestUnit(myUnit->pos, HighestGroundPriorityUnits);
+                Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, GroundUnitToAttack->pos);
             }
         }
 
-
+        //Earlier Code - if we need to revive it later
         /*for (const Unit* unit : enemy_units) {
 
             Actions()->UnitCommand(units, ABILITY_ID::ATTACK, GetClosestUnit(GetUnitsCentroid(units), enemy_units)->pos);

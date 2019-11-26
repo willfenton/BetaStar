@@ -67,6 +67,8 @@ public:
 
         IsHigherPriority(BetaStar* _CurrentBot) : CurrentBot(_CurrentBot) {}
 
+        //Note that we define use the ">" operation and not the "<" one because when we want to sort the enemy units
+        //using this functor, we want the highest priority units to be at the front of the sorted enemy units vector
         inline bool operator() (const Unit* unit1, const Unit* unit2) {
             return CurrentBot->GetUnitAttackPriority(unit1) > CurrentBot->GetUnitAttackPriority(unit2);
         }
