@@ -1186,3 +1186,12 @@ int BetaStar::GetZergUnitAttackPriority(const Unit* unit) {
         return 100;
     }
 }
+
+bool BetaStar::CanAttackAirUnits(const Unit* unit) {
+    for (Weapon w : all_unit_type_data[unit->unit_type].weapons) {
+        if (w.type == Weapon::TargetType::Air || w.type == Weapon::TargetType::Any) {
+            return true;
+        }
+    }
+    return false;
+}

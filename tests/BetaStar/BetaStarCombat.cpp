@@ -186,9 +186,57 @@ void BetaStar::EnemyBaseAttackMacro(const Units units)
     }
     else {
         // TODO: Replace with targeting micro
-        //Units enemy_units = Observation()->GetUnits(Unit::Alliance::Enemy);
-        //std::sort(std::begin(enemy_units), std::end(enemy_units), IsHigherPriority(this));
-        Actions()->UnitCommand(units, ABILITY_ID::ATTACK, GetClosestUnit(GetUnitsCentroid(units), enemy_units)->pos);
+        std::sort(std::begin(enemy_units), std::end(enemy_units), IsHigherPriority(this));
+
+        Units HighestPriorityUnits;
+        HighestPriorityUnits.push_back(enemy_units[0]);
+        int HighestPriorityLevel = GetUnitAttackPriority(enemy_units[0]);
+        for (const Unit* en_unit : enemy_units) {
+            if (GetUnitAttackPriority(en_unit) == HighestPriorityLevel) {
+                HighestPriorityUnits.push_back(en_unit);
+            }
+        }
+
+        Units HighestGroundPriorityUnits;
+        int HighestGroundPriorityLevel;
+        bool HighestGroundPriroityLevelFound = false;
+        for (const Unit* en_unit : enemy_units) {
+            if (HighestGroundPriroityLevelFound == false) {
+                if (en_unit->is_flying == false) {
+                    HighestGroundPriroityLevelFound = true;
+                    HighestGroundPriorityLevel = GetUnitAttackPriority(en_unit);
+                    HighestGroundPriorityUnits.push_back(en_unit);
+                }
+            }
+            else {
+                if (GetUnitAttackPriority(en_unit) == HighestGroundPriorityLevel) {
+                     HighestGroundPriorityUnits.push_back(en_unit);
+                }
+            }
+        }
+
+        if (HighestGroundPriorityUnits.empty()) {
+            HighestGroundPriorityUnits.push_back(HighestPriorityUnits[0]);
+        }
+
+
+        for (const Unit* myUnit : units) {
+            if (CanAttackAirUnits(myUnit)) {
+                const Unit* UnitToAttack = GetClosestUnit(myUnit->pos, HighestPriorityUnits);
+                Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, UnitToAttack->pos);
+                //std::cout << "Can Attack Flying Units" << " Attacking: " << UnitToAttack->unit_type;
+            }
+            else {
+                Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, GetClosestUnit(myUnit->pos, HighestGroundPriorityUnits)->pos);
+                //std::cout << "CanNOT Attack Flying Units" << " Attacking: " << UnitToAttack->unit_type;
+            }
+        }
+
+
+        /*for (const Unit* unit : enemy_units) {
+
+            Actions()->UnitCommand(units, ABILITY_ID::ATTACK, GetClosestUnit(GetUnitsCentroid(units), enemy_units)->pos);
+        }*/
     }
 }
 

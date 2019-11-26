@@ -171,7 +171,7 @@ void BetaStar::OnUnitEnterVision(const Unit* unit)
     GatherIntelligence(unit);
 
     //For testing purposes
-    std::cout << "Unit Priority is: " << GetUnitAttackPriority(unit) << std::endl;
+    //std::cout << "Unit Priority is: " << GetUnitAttackPriority(unit) << std::endl;
 
     // TODO: Respond to threats
 }

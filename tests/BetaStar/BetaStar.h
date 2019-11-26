@@ -67,7 +67,7 @@ public:
 
         IsHigherPriority(BetaStar* _CurrentBot) : CurrentBot(_CurrentBot) {}
 
-        inline bool operator() (Unit* unit1, Unit* unit2) { 
+        inline bool operator() (const Unit* unit1, const Unit* unit2) {
             return CurrentBot->GetUnitAttackPriority(unit1) > CurrentBot->GetUnitAttackPriority(unit2);
         }
     };
@@ -252,6 +252,9 @@ private:
     int GetProtossUnitAttackPriority(const Unit* unit);
     int GetTerranUnitAttackPriority(const Unit* unit);
     int GetZergUnitAttackPriority(const Unit* unit);
+
+    //Returns a boolean depending on whether the unit passed as argument can attack air units or not
+    bool CanAttackAirUnits(const Unit* unit);
 
     /* COMBAT FUNCTIONS */
 
