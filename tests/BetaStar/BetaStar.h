@@ -142,6 +142,8 @@ public:
 
     virtual void OnUnitCreated(const Unit *unit) final;
 
+    virtual void OnUnitDestroyed(const Unit *unit) final;
+
 private:
 
     /* ON-STEP FUNCTIONS */

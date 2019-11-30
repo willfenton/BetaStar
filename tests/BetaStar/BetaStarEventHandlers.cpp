@@ -229,3 +229,29 @@ void BetaStar::OnUnitCreated(const Unit *unit)
         }
     }
 }
+
+void BetaStar::OnUnitDestroyed(const Unit *unit)
+{
+    switch (unit->unit_type.ToType()) {
+        case UNIT_TYPEID::PROTOSS_PROBE: {
+            if (unit->tag == m_initial_scouting_probe->tag && !m_enemy_base_scouted) {
+                Point2D closest_enemy_start_location;
+                float closest_distance = std::numeric_limits<float>::max();
+                for (const auto& enemy_start_location : Observation()->GetGameInfo().enemy_start_locations) {
+                    float distance = DistanceSquared2D(unit->pos, enemy_start_location);
+                    if (distance < closest_distance) {
+                        closest_enemy_start_location = enemy_start_location;
+                        closest_distance = distance;
+                    }
+                }
+                if (closest_distance < std::numeric_limits<float>::max()) {
+                    std::cout << "Enemy start location guessed: (" << closest_enemy_start_location.x << "," << closest_enemy_start_location.y << ")" << std::endl;
+                    m_enemy_base_pos = closest_enemy_start_location;
+                    m_enemy_base_quadrant = GetQuadrantByPoint(m_enemy_base_pos);
+                    m_enemy_base_scouted = true;
+                }
+            }
+            break;
+        }
+    }
+}
