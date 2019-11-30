@@ -1123,14 +1123,17 @@ int BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
             return AlmostEqual(army_ratios[UNIT_TYPEID::PROTOSS_DARKTEMPLAR], 0.0f) ? 0 : 150;
         case UNIT_TYPEID::PROTOSS_PYLON:
             return 125;
+        case UNIT_TYPEID::PROTOSS_NEXUS:
+            return 115;
+        case UNIT_TYPEID::PROTOSS_PROBE:
+            return 110;
         case UNIT_TYPEID::PROTOSS_GATEWAY:
         case UNIT_TYPEID::PROTOSS_WARPGATE:
         case UNIT_TYPEID::PROTOSS_STARGATE:
         case UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY:
             return 100;
         // default units without weapons will be 99
-        case UNIT_TYPEID::PROTOSS_PROBE:
-            return 75;
+
         // default buildings without weapons will be 1
         default:
             return GenericPriorityFallbacks(unit);
@@ -1146,12 +1149,19 @@ int BetaStar::GetTerranUnitAttackPriority(const Unit* unit) {
         case UNIT_TYPEID::TERRAN_BATTLECRUISER:
             return 300;
         case UNIT_TYPEID::TERRAN_MEDIVAC:
+        case UNIT_TYPEID::TERRAN_PLANETARYFORTRESS:
             return 200;
         // default units with weapons will be 199
         case UNIT_TYPEID::TERRAN_MARINE:
         case UNIT_TYPEID::TERRAN_REAPER:
             return 150;
+        case UNIT_TYPEID::TERRAN_COMMANDCENTER:
+        case UNIT_TYPEID::TERRAN_COMMANDCENTERFLYING:
+        case UNIT_TYPEID::TERRAN_ORBITALCOMMAND:
+        case UNIT_TYPEID::TERRAN_ORBITALCOMMANDFLYING:
+            return 125;
         case UNIT_TYPEID::TERRAN_SCV:
+            return 110;
         case UNIT_TYPEID::TERRAN_FACTORY:
         case UNIT_TYPEID::TERRAN_BARRACKS:
         case UNIT_TYPEID::TERRAN_STARPORT:
