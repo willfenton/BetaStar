@@ -38,8 +38,11 @@ void BetaStar::GatherIntelligence(const Unit *unit)
     // detect cloaked units
     if (!has_cloaked && (unit->cloak == Unit::Cloaked || unit->cloak == Unit::CloakedDetected))
     {
-        has_cloaked = true;
-        std::cout << "Enemy has cloaked units" << std::endl;
+        if (!all_unit_type_data[unit->unit_type].weapons.empty())
+        {
+            has_cloaked = true;
+            std::cout << "Enemy has cloaked units that can attack" << std::endl;
+        }
     }
 
     // detect detector units (if they don't have any, we can lean into cloaked units)
@@ -119,18 +122,10 @@ void BetaStar::TrainBalancedArmy()
 
 void BetaStar::BaseDefenseMacro(const Units units)
 {
-    Units enemy_units = Observation()->GetUnits(Unit::Alliance::Enemy);
+    Units enemy_units = Observation()->GetUnits(Unit::Alliance::Enemy, IsNotCloaked(IsVisible(IsNear(m_starting_pos, 50.0f))));
 
-    // if there's an enemy close, attack it
-    for (const auto& unit : enemy_units) {
-        if (unit->display_type == Unit::DisplayType::Visible) {
-            float distance = DistanceSquared2D(m_starting_pos, unit->pos);
-            if (distance < 2500) {
-                Actions()->UnitCommand(units, ABILITY_ID::ATTACK, unit->pos);
-                break;
-            }
-        }
-    }
+    // if there are valid enemies close, attack them
+    TargetingMicro(units, enemy_units);
 
     // TODO: Better clustering/positioning within base when idle
     for (const auto& unit : units) {
@@ -149,118 +144,131 @@ void BetaStar::BaseDefenseMacro(const Units units)
 //closest ground enemy unit if such an enemy unit exists
 void BetaStar::EnemyBaseAttackMacro(const Units units)
 {
-    Units enemy_units = Observation()->GetUnits(Unit::Alliance::Enemy);
+    Units enemy_units = Observation()->GetUnits(Unit::Alliance::Enemy, IsNotCloaked(IsVisible()));
 
     if (enemy_units.size() == 0) {
-        if (!m_searching_new_enemy_base)
-        {
-            for (const Unit *unit : units)
-            {
-                // if we're on top of the old base and can't find units, search for another base
-                if (DistanceSquared2D(unit->pos, m_enemy_base_pos) < 100)
-                {
-                    m_searching_new_enemy_base = true;
-                    break;
-                }
-            }
-        }
 
-        if (m_searching_new_enemy_base)
+        // We may have hidden units to attack
+        enemy_units = Observation()->GetUnits(Unit::Alliance::Enemy, IsNotCloaked());
+        if (enemy_units.size() == 0)
         {
-            for (const Unit *unit : units)
+            if (!m_searching_new_enemy_base)
             {
-                // we've reached a new location and there isn't anything here - go to the next one (hacked in check for rogue (0,0) point)
-                if (DistanceSquared2D(unit->pos, m_expansion_locations[m_current_search_index]) < 100
-                    || (m_expansion_locations[m_current_search_index].x < 0.1f && m_expansion_locations[m_current_search_index].y < 0.1f))
+                for (const Unit *unit : units)
                 {
-                    m_current_search_index = (m_current_search_index + 1) % m_expansion_locations.size();
-                    break;
+                    // if we're on top of the old base and can't find units, trigger search and destroy
+                    if (DistanceSquared2D(unit->pos, m_enemy_base_pos) < 100)
+                    {
+                        m_searching_new_enemy_base = true;
+                        break;
+                    }
                 }
             }
 
-            // continue the march to the current location to check
-            Actions()->UnitCommand(units, ABILITY_ID::ATTACK, m_expansion_locations[m_current_search_index]);
+            if (m_searching_new_enemy_base)
+            {
+                for (const Unit *unit : units)
+                {
+                    // we've reached a new location and there isn't anything here - go to the next one (hacked in check for rogue (0,0) point)
+                    if (DistanceSquared2D(unit->pos, m_expansion_locations[m_current_search_index]) < 100
+                        || (m_expansion_locations[m_current_search_index].x < 0.1f && m_expansion_locations[m_current_search_index].y < 0.1f))
+                    {
+                        m_current_search_index = (m_current_search_index + 1) % m_expansion_locations.size();
+                        break;
+                    }
+                }
+
+                // continue the march to the current location to check
+                Actions()->UnitCommand(units, ABILITY_ID::ATTACK, m_expansion_locations[m_current_search_index]);
+            }
+            // still think we can march to enemy main base to wipe them out - continue going there
+            else
+            {
+                Actions()->UnitCommand(units, ABILITY_ID::ATTACK, m_enemy_base_pos);
+            }
         }
-        // still think we can march to enemy main base to wipe them out - continue going there
+        // March toward nearest hidden enemy
         else
         {
-            Actions()->UnitCommand(units, ABILITY_ID::ATTACK, m_enemy_base_pos);
+            Actions()->UnitCommand(units, ABILITY_ID::ATTACK, GetClosestUnit(GetUnitsCentroid(units), enemy_units)->pos);
         }
     }
-    else { //Note: Now we know that enemy_units is non-empty in this block of code
+    else //Note: Now we know that enemy_units is non-empty in this block of code
+    { 
+        TargetingMicro(units, enemy_units);
+    }
+}
 
-        // TODO: Replace with targeting micro   Done?
+void BetaStar::TargetingMicro(const Units units, Units enemy_units)
+{
+    // Must have valid targets and valid units that need targets
+    if (enemy_units.empty() || units.empty())
+    {
+        return;
+    }
 
-        //Sort Enemy Units By Targeting Priority
-        std::sort(std::begin(enemy_units), std::end(enemy_units), IsHigherPriority(this));
+    //Sort Enemy Units By Targeting Priority
+    std::sort(std::begin(enemy_units), std::end(enemy_units), IsHigherPriority(this));
 
-        //Find all enemy units with the highest priority
-        Units HighestPriorityUnits;
-        //The first entry in the enemy_units vector after sorting is one of the highest priority
-        HighestPriorityUnits.push_back(enemy_units[0]); //valid since enemy_units is non-empty;
-        //Find its priority level
-        int HighestPriorityLevel = GetUnitAttackPriority(enemy_units[0]);
-        //Find all other units with same priority level (should be at the beginning of sorted enemy_units vector)
-        for (const Unit* en_unit : enemy_units) { 
-            if (GetUnitAttackPriority(en_unit) == HighestPriorityLevel) {
-                HighestPriorityUnits.push_back(en_unit);
+    //Find all enemy units with the highest priority
+    Units HighestPriorityUnits;
+    //The first entry in the enemy_units vector after sorting is one of the highest priority
+    HighestPriorityUnits.push_back(enemy_units[0]); //valid since enemy_units is non-empty;
+    //Find its priority level
+    int HighestPriorityLevel = GetUnitAttackPriority(enemy_units[0]);
+    //Find all other units with same priority level (should be at the beginning of sorted enemy_units vector)
+    for (const Unit* en_unit : enemy_units) {
+        if (GetUnitAttackPriority(en_unit) == HighestPriorityLevel) {
+            HighestPriorityUnits.push_back(en_unit);
+        }
+    }
+
+    //Find all highest priority ground enemy units 
+    Units HighestGroundPriorityUnits;
+    int HighestGroundPriorityLevel;
+    bool HighestGroundPriroityLevelFound = false;
+    //Iterate through all enemy units
+    for (const Unit* en_unit : enemy_units) {
+        //If we havent found any ground unit while going down this sorted vector
+        if (HighestGroundPriroityLevelFound == false) {
+            //If we find a ground unit
+            if (en_unit->is_flying == false) {
+                HighestGroundPriroityLevelFound = true;
+                //Set the highest priority level for ground units to be its priority level
+                HighestGroundPriorityLevel = GetUnitAttackPriority(en_unit);
+                //Add it to the HighestGroundPriorityUnits vector
+                HighestGroundPriorityUnits.push_back(en_unit);
             }
         }
-
-        //Find all highest priority ground enemy units 
-        Units HighestGroundPriorityUnits;
-        int HighestGroundPriorityLevel;
-        bool HighestGroundPriroityLevelFound = false;
-        //Iterate through all enemy units
-        for (const Unit* en_unit : enemy_units) {
-            //If we havent found any ground unit while going down this sorted vector
-            if (HighestGroundPriroityLevelFound == false) {
-                //If we find a ground unit
-                if (en_unit->is_flying == false) {
-                    HighestGroundPriroityLevelFound = true;
-                    //Set the highest priority level for ground units to be its priority level
-                    HighestGroundPriorityLevel = GetUnitAttackPriority(en_unit);
-                    //Add it to the HighestGroundPriorityUnits vector
-                    HighestGroundPriorityUnits.push_back(en_unit);
-                }
-            }
-            //If we have found one of the highest priority ground units
-            else {
-                //If this unit is also ground unit and also has same priority as the highest ground priority level
-                if (en_unit->is_flying == false && GetUnitAttackPriority(en_unit) == HighestGroundPriorityLevel) {
-                    //Add it to the HighestGroundPriorityUnits vector
-                     HighestGroundPriorityUnits.push_back(en_unit);
-                }
+        //If we have found one of the highest priority ground units
+        else {
+            //If this unit is also ground unit and also has same priority as the highest ground priority level
+            if (en_unit->is_flying == false && GetUnitAttackPriority(en_unit) == HighestGroundPriorityLevel) {
+                //Add it to the HighestGroundPriorityUnits vector
+                HighestGroundPriorityUnits.push_back(en_unit);
             }
         }
+    }
 
-        //Note that while HighestPriorityUnits vector is guarenteed to be non-empty (since enemy_units is non-empty).
-        // HighestGroundPriorityUnits is not guarenteed to be non-empty
-        //To ensure that this does not cause a runtime error, we have the units that cannot attack ground units "attack"
-        //some flying unit's location though this does not have any effect on the flying unit
-        if (HighestGroundPriorityUnits.empty()) {
-            HighestGroundPriorityUnits.push_back(HighestPriorityUnits[0]);
+    Point2D unitCentroid = GetUnitsCentroid(units);
+
+    //Iterate through all our units that are on offence
+    for (const Unit* myUnit : units) {
+        // If the unit can attack flying units, then attack the closest highest priority unit to the group (focus fire)
+        if (CanAttackAirUnits(myUnit)) {
+            const Unit* UnitToAttack = GetClosestUnit(unitCentroid, HighestPriorityUnits);
+            Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, UnitToAttack);
         }
-
-        //Iterate through all our units that are on offence
-        for (const Unit* myUnit : units) {
-            //If the unit can attack flying units, then attack the closest highest priority unit
-            if (CanAttackAirUnits(myUnit)) {
-                const Unit* UnitToAttack = GetClosestUnit(myUnit->pos, HighestPriorityUnits);
-                Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, UnitToAttack->pos);
-            }
-            //If the unit can't attack flying units, teh attack the closest highest priority ground unit
-            else {
-                const Unit* GroundUnitToAttack = GetClosestUnit(myUnit->pos, HighestGroundPriorityUnits);
-                Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, GroundUnitToAttack->pos);
-            }
+        // If the unit can't attack flying units, teh attack the closest highest priority ground unit to the group (focus fire)
+        else if (!HighestGroundPriorityUnits.empty()) {
+            const Unit* GroundUnitToAttack = GetClosestUnit(unitCentroid, HighestGroundPriorityUnits);
+            Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, GroundUnitToAttack);
         }
-
-        //Earlier Code - if we need to revive it later
-        /*for (const Unit* unit : enemy_units) {
-
-            Actions()->UnitCommand(units, ABILITY_ID::ATTACK, GetClosestUnit(GetUnitsCentroid(units), enemy_units)->pos);
-        }*/
+        // If they don't have a good option, attack move in the right direction
+        else
+        {
+            Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, GetClosestUnit(unitCentroid, enemy_units)->pos);
+        }
     }
 }
 

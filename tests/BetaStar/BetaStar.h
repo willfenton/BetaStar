@@ -20,34 +20,50 @@ class BetaStar : public Agent {
 public:
     /* Nested Class/Struct/Enum Definitions */
 
-    // Filter to use with GetUnit. Selects units that are buildings. These can also all combine into one compound filter by passing one as an optional argument to the next.
+    // Filter to use with GetUnit. Selects units of a certain type. Allows chaining our custom filters.
     struct BetterIsUnit {
-        BetterIsUnit(UNIT_TYPEID type, Filter filter = false) : _type(type), _filter(filter) {};
+        BetterIsUnit(UNIT_TYPEID type, Filter filter = false) : _type(type), _filter(filter) { }
         UNIT_TYPEID _type;
         Filter _filter;
-        bool operator()(const Unit& unit) { return unit.unit_type == _type && (!_filter || _filter(unit)); };
+        bool operator()(const Unit &unit) { return unit.unit_type == _type && (!_filter || _filter(unit)); }
     };
 
+    // Filter to use with GetUnit. Selects units that are buildings. These can also all combine into one compound filter by passing one as an optional argument to the next.
     struct IsBuilding {
-        IsBuilding(Filter filter = false) : _filter(filter) {};
+        IsBuilding(Filter filter = false) : _filter(filter) { }
         Filter _filter;
-        bool operator()(const Unit& unit) { return IsStructure(unit.unit_type) && (!_filter || _filter(unit)); };
+        bool operator()(const Unit &unit) { return IsStructure(unit.unit_type) && (!_filter || _filter(unit)); }
     };
 
     // Filter to use with GetUnit. Selects units that are within radius of point or unit.
     struct IsNear {
-        IsNear(const Unit *unit, float radius, Filter filter = false) : _pos(unit->pos), _radiusSquared(radius*radius), _filter(filter) {};
-        IsNear(Point2D pos, float radius, Filter filter = false) : _pos(pos), _radiusSquared(radius*radius), _filter(filter) {};
+        IsNear(const Unit *unit, float radius, Filter filter = false) : _pos(unit->pos), _radiusSquared(radius*radius), _filter(filter) { }
+        IsNear(Point2D pos, float radius, Filter filter = false) : _pos(pos), _radiusSquared(radius*radius), _filter(filter) { }
         Point2D _pos;
         float _radiusSquared;
         Filter _filter;
         bool operator()(const Unit &unit) { return DistanceSquared2D(unit.pos, _pos) <= _radiusSquared && (!_filter || _filter(unit)); }
     };
 
+    // Filter to use with GetUnit. Selects units that don't have any orders queued.
     struct HasNoOrders {
         HasNoOrders(Filter filter = false) : _filter(filter) { }
         Filter _filter;
-        bool operator()(const Unit& unit) { return unit.orders.empty() && (!_filter || _filter(unit)); }
+        bool operator()(const Unit &unit) { return unit.orders.empty() && (!_filter || _filter(unit)); }
+    };
+
+    // Filter to use with GetUnit. Selects units that aren't actively cloaked. 
+    struct IsNotCloaked {
+        IsNotCloaked(Filter filter = false) : _filter(filter) { }
+        Filter _filter;
+        bool operator()(const Unit &unit) { return unit.cloak != Unit::CloakState::Cloaked && (!_filter || _filter(unit)); }
+    };
+
+    // Filter to use with GetUnit. Selects units that aren't hidden by fog of war or saved as a snapshot.
+    struct IsVisible {
+        IsVisible(Filter filter = false) : _filter(filter) { }
+        Filter _filter;
+        bool operator()(const Unit &unit) { return unit.display_type == Unit::DisplayType::Visible && (!_filter || _filter(unit)); }
     };
 
     // Enumeration of our possible strategies
@@ -243,8 +259,8 @@ private:
 
     //Return the targeting priority of a unit as an integer.
     // The integer returned is: 
-    // Between 0 and 100 for structural units
-    // Between 100 and 200 for low priority units
+    // Between 0 and 100 for low priority units without weapons (i.e. structures)
+    // Between 100 and 200 for low priority units with weapons
     // Between 200 and 300 for medium priority units
     // Between 300 and 400 for high priority units
     // The return value has been made to be a range so that we can vary priority values within the range if we like
@@ -254,6 +270,7 @@ private:
     int GetProtossUnitAttackPriority(const Unit* unit);
     int GetTerranUnitAttackPriority(const Unit* unit);
     int GetZergUnitAttackPriority(const Unit* unit);
+    int GenericPriorityFallbacks(const Unit* unit);
 
     //Returns a boolean depending on whether the unit passed as argument can attack air units or not
     bool CanAttackAirUnits(const Unit* unit);
@@ -264,6 +281,8 @@ private:
     void BaseDefenseMacro(const Units units);
     // Macro actions to attack enemy bases. Call first and override with micro.
     void EnemyBaseAttackMacro(const Units units);
+    // Smart targeting for all units to pick targets from enemy_units. 
+    void TargetingMicro(const Units units, Units enemy_units);
     // Automatically performs blink micro on any stalkers that need it
     void StalkerBlinkMicro();
 
