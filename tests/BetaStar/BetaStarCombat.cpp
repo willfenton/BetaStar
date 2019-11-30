@@ -304,31 +304,77 @@ void BetaStar::TargetingMicro(const Units units, Units enemy_units)
     }
 }
 
-// FROM EXAMPLE BOT
+// MODIFIED FROM EXAMPLE BOT
 void BetaStar::StalkerBlinkMicro()
 {
+    if (!m_blink_researched)
+        return;
+
     Units stalkers = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_STALKER);
+    float weaponDist = all_unit_type_data[UnitTypeID(UNIT_TYPEID::PROTOSS_STALKER)].weapons[0].range;
+
+    // THIS IS NOT ACCURATE - BLINK DOESN'T REALLY HAVE 500 RANGE
+    //float blinkDist = all_ability_data[AbilityID(ABILITY_ID::EFFECT_BLINK)].cast_range;
+    float blinkDist = 8.0f;
 
     for (const auto& stalker : stalkers) {
+        const Unit *engaged_unit = Observation()->GetUnit(stalker->engaged_target_tag);
         if (stalker->shield == 0 && stalker->health < stalker->health_max) {
-            if (m_blink_researched) {
-                const Unit* target_unit = Observation()->GetUnit(stalker->engaged_target_tag);
-                Point2D blink_location = m_starting_pos;
-                if (stalker->shield < 1) {
-                    if (!stalker->orders.empty()) {
-                        if (Observation()->GetUnit(stalker->engaged_target_tag) != nullptr) {
-                            Vector2D diff = stalker->pos - target_unit->pos;
-                            Normalize2D(diff);
-                            blink_location = stalker->pos + diff * 7.0f;
-                        }
-                        else {
-                            Vector2D diff = stalker->pos - m_starting_pos;
-                            Normalize2D(diff);
-                            blink_location = stalker->pos - diff * 7.0f;
-                        }
-                        Actions()->UnitCommand(stalker, ABILITY_ID::EFFECT_BLINK, blink_location);
+            const Unit* target_unit = Observation()->GetUnit(stalker->engaged_target_tag);
+            Point2D blink_location = m_starting_pos;
+            if (stalker->shield < 1) {
+                if (!stalker->orders.empty()) {
+                    if (engaged_unit != nullptr) {
+                        Vector2D diff = stalker->pos - target_unit->pos;
+                        Normalize2D(diff);
+                        blink_location = stalker->pos + diff * 7.0f;
                     }
+                    else {
+                        Vector2D diff = stalker->pos - m_starting_pos;
+                        Normalize2D(diff);
+                        blink_location = stalker->pos - diff * 7.0f;
+                    }
+                    Actions()->UnitCommand(stalker, ABILITY_ID::EFFECT_BLINK, blink_location);
                 }
+            }
+        }
+        else if (!stalker->orders.empty())
+        {
+            Point2D targetPoint(0.0f, 0.0f);
+            float targetSize = 0.0f;
+            const Unit *targetUnit = Observation()->GetUnit(stalker->engaged_target_tag);
+            // If we couldn't get a valid engaged unit, try to get the target of our next order
+            if (targetUnit == nullptr)
+            {
+                targetUnit = Observation()->GetUnit(stalker->orders[0].target_unit_tag);
+            }
+            // If we've found a valid enemy target, use its position
+            if (targetUnit != nullptr)
+            {
+                targetPoint = targetUnit->pos;
+                targetSize = targetUnit->radius;
+            }
+            // If we still don't have a valid enemy target, see if we have a position that our order is targeting
+            else
+            {
+                targetPoint = stalker->orders[0].target_pos;
+            }
+
+            // Exit if we haven't found a valid target point
+            if (AlmostEqual(targetPoint, Point2D(0.0f, 0.0f)))
+                return;
+
+            float crowDist = Distance2D(targetPoint, stalker->pos);
+
+            // Make sure the unit isn't already within weapons range of target before we blink
+            if (crowDist > weaponDist + targetSize)
+            {
+                // TODO: If we don't have a unit target, we're probably moving. If we're moving, we could use the unit's
+                //       actual facing direction for blinks instead of wonky blinking directly toward the enemy base
+                Point2D diff = targetPoint - stalker->pos;
+                Normalize2D(diff);
+                Point2D blink_location = stalker->pos + (diff * blinkDist);
+                Actions()->UnitCommand(stalker, ABILITY_ID::EFFECT_BLINK, blink_location);
             }
         }
     }

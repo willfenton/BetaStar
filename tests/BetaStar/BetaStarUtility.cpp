@@ -1121,6 +1121,13 @@ int BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
         return 300;
     case UNIT_TYPEID::PROTOSS_OBSERVER:
         return AlmostEqual(army_ratios[UNIT_TYPEID::PROTOSS_DARKTEMPLAR], 0.0f) ? 0 : 150;
+    case UNIT_TYPEID::PROTOSS_PYLON:
+        return 125;
+    case UNIT_TYPEID::PROTOSS_GATEWAY:
+    case UNIT_TYPEID::PROTOSS_WARPGATE:
+    case UNIT_TYPEID::PROTOSS_STARGATE:
+    case UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY:
+        return 100;
     case UNIT_TYPEID::PROTOSS_PROBE:
         return 75;
     default:
@@ -1140,7 +1147,10 @@ int BetaStar::GetTerranUnitAttackPriority(const Unit* unit) {
     case UNIT_TYPEID::TERRAN_REAPER:
         return 150;
     case UNIT_TYPEID::TERRAN_SCV:
-        return 75;
+    case UNIT_TYPEID::TERRAN_FACTORY:
+    case UNIT_TYPEID::TERRAN_BARRACKS:
+    case UNIT_TYPEID::TERRAN_STARPORT:
+        return 100;
     default:
         return GenericPriorityFallbacks(unit);
     }
@@ -1158,7 +1168,12 @@ int BetaStar::GetZergUnitAttackPriority(const Unit* unit) {
     case UNIT_TYPEID::ZERG_INFESTOR:
     case UNIT_TYPEID::ZERG_LURKERMP:
         return 300;
-        //Explicitly Specified Low Priority Units
+    case UNIT_TYPEID::ZERG_HATCHERY:
+    case UNIT_TYPEID::ZERG_LAIR:
+    case UNIT_TYPEID::ZERG_HIVE:
+        return 100;
+    case UNIT_TYPEID::ZERG_DRONE:
+        return 75;
     case UNIT_TYPEID::ZERG_OVERSEER:
     case UNIT_TYPEID::ZERG_OVERLORD:
         return 50;
@@ -1169,8 +1184,6 @@ int BetaStar::GetZergUnitAttackPriority(const Unit* unit) {
     case UNIT_TYPEID::ZERG_TRANSPORTOVERLORDCOCOON:
     case UNIT_TYPEID::ZERG_EGG:
         return 0;
-    case UNIT_TYPEID::ZERG_DRONE:
-        return 75;
     default:
         return GenericPriorityFallbacks(unit);
     }
