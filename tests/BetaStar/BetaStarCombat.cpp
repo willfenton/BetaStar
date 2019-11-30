@@ -167,19 +167,51 @@ void BetaStar::EnemyBaseAttackMacro(const Units units)
 
             if (m_searching_new_enemy_base)
             {
-                for (const Unit *unit : units)
+                // re-fill the list of locations to search if empty
+                if (m_open_expansion_locations.empty())
                 {
-                    // we've reached a new location and there isn't anything here - go to the next one (hacked in check for rogue (0,0) point)
-                    if (DistanceSquared2D(unit->pos, m_expansion_locations[m_current_search_index]) < 100
-                        || (m_expansion_locations[m_current_search_index].x < 0.1f && m_expansion_locations[m_current_search_index].y < 0.1f))
+                    for (Point2D point : m_expansion_locations)
                     {
-                        m_current_search_index = (m_current_search_index + 1) % m_expansion_locations.size();
-                        break;
+                        m_open_expansion_locations.push_back(point);
                     }
                 }
 
-                // continue the march to the current location to check
-                Actions()->UnitCommand(units, ABILITY_ID::ATTACK, m_expansion_locations[m_current_search_index]);
+                for (const Unit *unit : units)
+                {
+                    // Things to do if a unit is close to a location to search
+                    for (auto iter = m_open_expansion_locations.begin(); iter != m_open_expansion_locations.end(); )
+                    {
+                        // Is a unit close to an expansion location without seeing an enemy (or is the expansion location invalid?)
+                        if (!AlmostEqual(*iter, Point2D(0.0f, 0.0f)) && DistanceSquared2D(unit->pos, *iter) < 100)
+                        {
+                            // Remove searched base location from list, but store it temporarily for some checks
+                            Point2D storedPoint = *iter;
+                            iter = m_open_expansion_locations.erase(iter);
+
+                            // Expansion location has been searched. All units that were going there should go to a different location instead.
+                            for (const Unit *subUnit : units)
+                            {
+                                for (UnitOrder order : subUnit->orders)
+                                {
+                                    if (AlmostEqual(order.target_pos, storedPoint))
+                                    {
+                                        Actions()->UnitCommand(unit, ABILITY_ID::ATTACK, GetRandomEntry(m_open_expansion_locations));
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            ++iter;
+                        }
+                    }
+
+                    // March to a new location unless otherwise engaged
+                    if (unit->orders.empty())
+                    {
+                        Actions()->UnitCommand(unit, ABILITY_ID::ATTACK, GetRandomEntry(m_open_expansion_locations));
+                    }
+                }
             }
             // still think we can march to enemy main base to wipe them out - continue going there
             else

@@ -331,7 +331,8 @@ private:
 
     bool m_attacking = false;
     bool m_searching_new_enemy_base = false;
-    size_t m_current_search_index = 0;
+    //std::vector<Point2D> m_visited_expansion_locations;
+    std::vector<Point2D> m_open_expansion_locations;
 
     // how many bases to build (max)
     const int m_max_bases = 3;
