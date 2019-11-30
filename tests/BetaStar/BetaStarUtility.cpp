@@ -718,6 +718,25 @@ Point2D BetaStar::GetUnitsCentroid(const Units units)
     return centroid / (float)units.size();
 }
 
+Point2D BetaStar::GetUnitsCentroidNearPoint(const Units units, float unitFrac, Point2D desiredTarget)
+{
+    // Can't work with 0 units
+    if (AlmostEqual(unitFrac, 0.0f))
+        return;
+
+    std::sort(units.begin(), units.end(), IsCloser(desiredTarget));
+
+    int nUnits = ceil(units.size() * unitFrac);
+
+    Point2D centroid(0.0f, 0.0f);
+    for (size_t i = 0; i < nUnits; ++i)
+    {
+        centroid += units[i]->pos;
+    }
+
+    return centroid / (float)nUnits;
+}
+
 float BetaStar::GetGameTime()
 {
     return Observation()->GetGameLoop() / 22.4f;

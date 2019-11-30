@@ -91,6 +91,14 @@ public:
         }
     };
 
+    struct IsCloser {
+        IsCloser(Point2D compPoint) : _compPoint(compPoint) { }
+        Point2D _compPoint;
+        inline bool operator() (const Unit* lhs, const Unit *rhs) {
+            return DistanceSquared2D(lhs->pos, _compPoint) < DistanceSquared2D(rhs->pos, _compPoint);
+        }
+    };
+
     /* Static Functions (Can also be used in functors) */
 
     // Returns the UnitTypeID of the unit that builds the specified unit
@@ -254,6 +262,8 @@ private:
 
     // Returns the average position of all provided units
     Point2D GetUnitsCentroid(const Units units);
+    // Returns the average position of the closest ceil(Units.size() * unitFrac) to the desired target
+    Point2D GetUnitsCentroidNearPoint(const Units units, float unitFrac, Point2D desiredTarget);
 
     // Returns the current game time, in seconds
     float GetGameTime();

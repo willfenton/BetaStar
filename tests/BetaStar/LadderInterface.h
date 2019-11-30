@@ -19,6 +19,11 @@ public:
     virtual void OnStep() final {
     };
 
+    virtual void OnBuildingConstructionComplete(const Unit* unit)
+    {
+        std::cout << UnitTypeToName(unit->unit_type) << " built by HOOMAN at: (" << unit->pos.x << "," << unit->pos.y << ")" << std::endl;
+    }
+
 private:
 };
 

@@ -284,7 +284,7 @@ void BetaStar::TargetingMicro(const Units units, Units enemy_units)
         }
     }
 
-    Point2D unitCentroid = GetUnitsCentroid(units);
+    Point2D unitCentroid = GetUnitsCentroidNearPoint(units, 0.25f, GetUnitsCentroid(enemy_units));
 
     //Iterate through all our units that are on offence
     for (const Unit* myUnit : units) {
