@@ -1107,98 +1107,108 @@ int BetaStar::GetUnitAttackPriority(const Unit* unit) {
 }
 
 int BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
+    // Order in descending priority, except for the default case
     switch ((unit->unit_type).ToType()) {
-        //High Priority
-    case UNIT_TYPEID::PROTOSS_DARKTEMPLAR:
-    case UNIT_TYPEID::PROTOSS_WARPPRISM:
-    case UNIT_TYPEID::PROTOSS_MOTHERSHIP:
-        return 400;
-        //Medium Priority
-    case UNIT_TYPEID::PROTOSS_DISRUPTOR:
-    case UNIT_TYPEID::PROTOSS_HIGHTEMPLAR:
-    case UNIT_TYPEID::PROTOSS_SENTRY:
-    case UNIT_TYPEID::PROTOSS_PHOTONCANNON:
-        return 300;
-    case UNIT_TYPEID::PROTOSS_OBSERVER:
-        return AlmostEqual(army_ratios[UNIT_TYPEID::PROTOSS_DARKTEMPLAR], 0.0f) ? 0 : 150;
-    case UNIT_TYPEID::PROTOSS_PYLON:
-        return 125;
-    case UNIT_TYPEID::PROTOSS_GATEWAY:
-    case UNIT_TYPEID::PROTOSS_WARPGATE:
-    case UNIT_TYPEID::PROTOSS_STARGATE:
-    case UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY:
-        return 100;
-    case UNIT_TYPEID::PROTOSS_PROBE:
-        return 75;
-    default:
-        return GenericPriorityFallbacks(unit);
+        case UNIT_TYPEID::PROTOSS_DARKTEMPLAR:
+        case UNIT_TYPEID::PROTOSS_WARPPRISM:
+        case UNIT_TYPEID::PROTOSS_MOTHERSHIP:
+            return 400;
+        case UNIT_TYPEID::PROTOSS_DISRUPTOR:
+        case UNIT_TYPEID::PROTOSS_HIGHTEMPLAR:
+        case UNIT_TYPEID::PROTOSS_SENTRY:
+        case UNIT_TYPEID::PROTOSS_PHOTONCANNON:
+            return 300;
+        // default units with weapons will be 199
+        case UNIT_TYPEID::PROTOSS_OBSERVER:
+            return AlmostEqual(army_ratios[UNIT_TYPEID::PROTOSS_DARKTEMPLAR], 0.0f) ? 0 : 150;
+        case UNIT_TYPEID::PROTOSS_PYLON:
+            return 125;
+        case UNIT_TYPEID::PROTOSS_GATEWAY:
+        case UNIT_TYPEID::PROTOSS_WARPGATE:
+        case UNIT_TYPEID::PROTOSS_STARGATE:
+        case UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY:
+            return 100;
+        // default units without weapons will be 99
+        case UNIT_TYPEID::PROTOSS_PROBE:
+            return 75;
+        // default buildings without weapons will be 1
+        default:
+            return GenericPriorityFallbacks(unit);
     }
 }
 
 int BetaStar::GetTerranUnitAttackPriority(const Unit* unit) {
+    // Order in descending priority, except for the default case
     switch ((unit->unit_type).ToType()) {
-        //High Priority
-    case UNIT_TYPEID::TERRAN_GHOST:
-    case UNIT_TYPEID::TERRAN_SIEGETANK:
-        return 400;
-        //Medium Priority - there are many of these for Terran; so medium priority units are given the default case
-        //Low Priority
-    case UNIT_TYPEID::TERRAN_MARINE:
-    case UNIT_TYPEID::TERRAN_REAPER:
-        return 150;
-    case UNIT_TYPEID::TERRAN_SCV:
-    case UNIT_TYPEID::TERRAN_FACTORY:
-    case UNIT_TYPEID::TERRAN_BARRACKS:
-    case UNIT_TYPEID::TERRAN_STARPORT:
-        return 100;
-    default:
-        return GenericPriorityFallbacks(unit);
+        case UNIT_TYPEID::TERRAN_GHOST:
+        case UNIT_TYPEID::TERRAN_SIEGETANK:
+            return 400;
+        case UNIT_TYPEID::TERRAN_BATTLECRUISER:
+            return 300;
+        case UNIT_TYPEID::TERRAN_MEDIVAC:
+            return 200;
+        // default units with weapons will be 199
+        case UNIT_TYPEID::TERRAN_MARINE:
+        case UNIT_TYPEID::TERRAN_REAPER:
+            return 150;
+        case UNIT_TYPEID::TERRAN_SCV:
+        case UNIT_TYPEID::TERRAN_FACTORY:
+        case UNIT_TYPEID::TERRAN_BARRACKS:
+        case UNIT_TYPEID::TERRAN_STARPORT:
+            return 100;
+        // default units without weapons will be 99
+        // default buildings without weapons will be 1
+        default:
+            return GenericPriorityFallbacks(unit);
     }
 }
 
 int BetaStar::GetZergUnitAttackPriority(const Unit* unit) {
+    // Order in descending priority, except for the default case
     switch ((unit->unit_type).ToType()) {
-        //High Priority
-    case UNIT_TYPEID::ZERG_BROODLORD:
-    case UNIT_TYPEID::ZERG_ULTRALISK:
-        return 400;
-        //Medium Priority
-    case UNIT_TYPEID::ZERG_VIPER:
-    case UNIT_TYPEID::ZERG_SWARMHOSTMP:
-    case UNIT_TYPEID::ZERG_INFESTOR:
-    case UNIT_TYPEID::ZERG_LURKERMP:
-        return 300;
-    case UNIT_TYPEID::ZERG_HATCHERY:
-    case UNIT_TYPEID::ZERG_LAIR:
-    case UNIT_TYPEID::ZERG_HIVE:
-        return 100;
-    case UNIT_TYPEID::ZERG_DRONE:
-        return 75;
-    case UNIT_TYPEID::ZERG_OVERSEER:
-    case UNIT_TYPEID::ZERG_OVERLORD:
-        return 50;
-    case UNIT_TYPEID::ZERG_LARVA:
-    case UNIT_TYPEID::ZERG_BROODLORDCOCOON:
-    case UNIT_TYPEID::ZERG_RAVAGERCOCOON:
-    case UNIT_TYPEID::ZERG_OVERLORDCOCOON:
-    case UNIT_TYPEID::ZERG_TRANSPORTOVERLORDCOCOON:
-    case UNIT_TYPEID::ZERG_EGG:
-        return 0;
-    default:
-        return GenericPriorityFallbacks(unit);
+        case UNIT_TYPEID::ZERG_BROODLORD:
+        case UNIT_TYPEID::ZERG_ULTRALISK:
+            return 400;
+        case UNIT_TYPEID::ZERG_VIPER:
+        case UNIT_TYPEID::ZERG_SWARMHOSTMP:
+        case UNIT_TYPEID::ZERG_INFESTOR:
+        case UNIT_TYPEID::ZERG_LURKERMP:
+            return 300;
+        // default units with weapons will be 199
+        case UNIT_TYPEID::ZERG_HATCHERY:
+        case UNIT_TYPEID::ZERG_LAIR:
+        case UNIT_TYPEID::ZERG_HIVE:
+            return 100;
+        // default units without weapons will be 99
+        case UNIT_TYPEID::ZERG_DRONE:
+            return 75;
+        case UNIT_TYPEID::ZERG_OVERSEER:
+        case UNIT_TYPEID::ZERG_OVERLORD:
+            return 50;
+        // default buildings without weapons will be 1
+        case UNIT_TYPEID::ZERG_LARVA:
+        case UNIT_TYPEID::ZERG_BROODLORDCOCOON:
+        case UNIT_TYPEID::ZERG_RAVAGERCOCOON:
+        case UNIT_TYPEID::ZERG_OVERLORDCOCOON:
+        case UNIT_TYPEID::ZERG_TRANSPORTOVERLORDCOCOON:
+        case UNIT_TYPEID::ZERG_EGG:
+            return 0;
+        default:
+            return GenericPriorityFallbacks(unit);
     }
 }
 
-// Catch units that weren't explicitly handled. If they have weapons, they're a little more dangerous
 int BetaStar::GenericPriorityFallbacks(const Unit* unit)
 {
+    // Units with weapons are more dangerous
     if (all_unit_type_data[unit->unit_type].weapons.size() > 0)
     {
         return 199;
     }
+    // Of the units that can't attack, structures are lowest priority (leave room for 0 priority units)
     else
     {
-        return 99;
+        return IsStructure(unit->unit_type) ? 1 : 99;
     }
 }
 
