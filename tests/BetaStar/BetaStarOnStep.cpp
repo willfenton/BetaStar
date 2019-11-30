@@ -411,7 +411,7 @@ void BetaStar::OnStepManageWorkers()
     Units bases = FriendlyUnitsOfType(m_base_typeid);
     Units gases = FriendlyUnitsOfType(m_gas_building_typeid);
 
-    if (bases.empty()) {
+    if (bases.empty()) {// || (m_all_workers && rush_detected)) {
         return;
     }
 
@@ -703,9 +703,18 @@ void BetaStar::OnStepManageArmy()
 
     // defend our base
     if (!m_attacking) {
+        m_all_workers = true;
         for (UNIT_TYPEID unitType : managed_unit_types)
         {
-            BaseDefenseMacro(FriendlyUnitsOfType(unitType));
+            if (CountUnitType(unitType) != 0)
+            {
+                m_all_workers = false;
+                BaseDefenseMacro(FriendlyUnitsOfType(unitType));
+            }
+        }
+        if (rush_detected && m_all_workers)
+        {
+            BaseDefenseMacro(FriendlyUnitsOfType(m_worker_typeid));
         }
     }
     // attack enemy base
