@@ -63,6 +63,10 @@ void BetaStar::OnGameStart()
     m_starting_quadrant = GetQuadrantByPoint(m_starting_pos);
     std::cout << "Start location: (" << m_starting_pos.x << "," << m_starting_pos.y << ")" << std::endl;
 
+    // Decent default values in the case where something goes wrong with scouting
+    m_enemy_base_pos = m_starting_pos;
+    m_enemy_base_quadrant = m_starting_quadrant;
+
     m_army_rally_point = RotatePosition(m_army_rally_point, m_starting_quadrant);
 
     // calculate all expansion locations (this takes a while so we do it at the start of the game)
