@@ -357,7 +357,7 @@ private:
     bool m_building_nexus = false;
 
     // all expansion locations
-    std::vector<Point3D> m_expansion_locations;
+    std::vector<Point2D> m_expansion_locations;
 
     // scouting
     const Unit* m_initial_scouting_probe;

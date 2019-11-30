@@ -10,7 +10,7 @@ void BetaStar::OnStep() {
 
     //std::cout << Observation()->GetGameLoop() << std::endl;
 
-    OnStepComputeStatistics();
+    //OnStepComputeStatistics();
 
     if (m_warpgate_researched) {
         for (const auto& gateway : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_GATEWAY)) {
@@ -66,9 +66,21 @@ void BetaStar::OnGameStart()
     m_army_rally_point = RotatePosition(m_army_rally_point, m_starting_quadrant);
 
     // calculate all expansion locations (this takes a while so we do it at the start of the game)
-    m_expansion_locations = search::CalculateExpansionLocations(Observation(), Query());
+    // m_expansion_locations = search::CalculateExpansionLocations(Observation(), Query());
+    m_expansion_locations.push_back(m_starting_pos);
+    m_expansion_locations.push_back(Point2D(59.5f, 54.5f));
+    m_expansion_locations.push_back(Point2D(30.5f, 66.5f));
+    m_expansion_locations.push_back(Point2D(35.5, 93.5));
+    
+    for (size_t q = 1; q <= 3; ++q)
+    {
+        for (size_t i = 0; i < 4; ++i)
+        {
+            m_expansion_locations.push_back(RotatePosition(m_expansion_locations[i], q));
+        }
+    }
 
-    /*for (Point3D loc : m_expansion_locations)
+    /*for (Point2D loc : m_expansion_locations)
     {
         std::cout << loc.x << "," << loc.y << std::endl;
     }*/
