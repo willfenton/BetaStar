@@ -375,7 +375,7 @@ void BetaStar::OnStepExpand()
 
     // find the closest expansion location
     float minimum_distance = std::numeric_limits<float>::max();
-    Point3D closest_expansion;
+    Point2D closest_expansion;
     for (const auto& expansion : m_expansion_locations) {
         float current_distance = Distance2D(m_starting_pos, expansion);
         if (current_distance < .01f) {
