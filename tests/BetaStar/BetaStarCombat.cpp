@@ -239,18 +239,20 @@ void BetaStar::TargetingMicro(const Units units, Units enemy_units)
         return;
     }
 
+    Point2D army_centroid = GetUnitsCentroid(units);
+
     //Sort Enemy Units By Targeting Priority
-    std::sort(std::begin(enemy_units), std::end(enemy_units), IsHigherPriority(this));
+    std::sort(std::begin(enemy_units), std::end(enemy_units), IsHigherPriority(this, army_centroid));
 
     //Find all enemy units with the highest priority
     Units HighestPriorityUnits;
     //The first entry in the enemy_units vector after sorting is one of the highest priority
     HighestPriorityUnits.push_back(enemy_units[0]); //valid since enemy_units is non-empty;
     //Find its priority level
-    int HighestPriorityLevel = GetUnitAttackPriority(enemy_units[0]);
+    int HighestPriorityLevel = GetUnitAttackPriority(enemy_units[0], army_centroid);
     //Find all other units with same priority level (should be at the beginning of sorted enemy_units vector)
     for (const Unit* en_unit : enemy_units) {
-        if (GetUnitAttackPriority(en_unit) == HighestPriorityLevel) {
+        if (GetUnitAttackPriority(en_unit, army_centroid) == HighestPriorityLevel) {
             HighestPriorityUnits.push_back(en_unit);
         }
     }
@@ -267,7 +269,7 @@ void BetaStar::TargetingMicro(const Units units, Units enemy_units)
             if (en_unit->is_flying == false) {
                 HighestGroundPriroityLevelFound = true;
                 //Set the highest priority level for ground units to be its priority level
-                HighestGroundPriorityLevel = GetUnitAttackPriority(en_unit);
+                HighestGroundPriorityLevel = GetUnitAttackPriority(en_unit, army_centroid);
                 //Add it to the HighestGroundPriorityUnits vector
                 HighestGroundPriorityUnits.push_back(en_unit);
             }
@@ -275,7 +277,7 @@ void BetaStar::TargetingMicro(const Units units, Units enemy_units)
         //If we have found one of the highest priority ground units
         else {
             //If this unit is also ground unit and also has same priority as the highest ground priority level
-            if (en_unit->is_flying == false && GetUnitAttackPriority(en_unit) == HighestGroundPriorityLevel) {
+            if (en_unit->is_flying == false && GetUnitAttackPriority(en_unit, army_centroid) == HighestGroundPriorityLevel) {
                 //Add it to the HighestGroundPriorityUnits vector
                 HighestGroundPriorityUnits.push_back(en_unit);
             }

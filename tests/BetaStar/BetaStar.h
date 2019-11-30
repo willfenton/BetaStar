@@ -80,13 +80,14 @@ public:
     struct IsHigherPriority {
 
         BetaStar* CurrentBot;
+        Point2D army_centroid;
 
-        IsHigherPriority(BetaStar* _CurrentBot) : CurrentBot(_CurrentBot) {}
+        IsHigherPriority(BetaStar* _CurrentBot, Point2D _army_centroid) : CurrentBot(_CurrentBot), army_centroid(_army_centroid) {}
 
         //Note that we define use the ">" operation and not the "<" one because when we want to sort the enemy units
         //using this functor, we want the highest priority units to be at the front of the sorted enemy units vector
         inline bool operator() (const Unit* unit1, const Unit* unit2) {
-            return CurrentBot->GetUnitAttackPriority(unit1) > CurrentBot->GetUnitAttackPriority(unit2);
+            return CurrentBot->GetUnitAttackPriority(unit1, army_centroid) > CurrentBot->GetUnitAttackPriority(unit2, army_centroid);
         }
     };
 
@@ -264,7 +265,7 @@ private:
     // Between 200 and 300 for medium priority units
     // Between 300 and 400 for high priority units
     // The return value has been made to be a range so that we can vary priority values within the range if we like
-    int GetUnitAttackPriority(const Unit* unit);
+    int GetUnitAttackPriority(const Unit* unit, Point2D army_centroid);
 
     //Helper functions for GetUnitAttackPriority
     int GetProtossUnitAttackPriority(const Unit* unit);

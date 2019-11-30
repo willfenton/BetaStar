@@ -647,13 +647,31 @@ void BetaStar::OnStepBuildArmy()
 
     Units twilight_councils = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
 
-    size_t coresBuilt = CountUnitType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE, false);
+    size_t cores_done = CountUnitType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE, false);
+    size_t twilight_councils_built = CountUnitType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE, true);
+    size_t twilight_councils_done = CountUnitType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE, false);
 
-    if (twilight_councils.size() == 0) {
+    if (cores_done == 0) {
         return;
     }
 
-    if (coresBuilt > 0 && m_blink_researching)
+    // Blink researching --> build stalkers all you want
+    if (m_blink_researching) {
+        TrainBalancedArmy();
+    }
+
+    // Twilight council done but blink not researched yet --> save up for blink and train stalkers
+    if (twilight_councils_done > 0 && !m_blink_researching && num_minerals >= 275 && num_gas >= 200) {
+        TrainBalancedArmy();
+    }
+
+    // Twilight council building but not done --> save up for blink and train stalkers
+    if (twilight_councils_built > 0 && num_minerals >= 275 && num_gas >= 200) {
+        TrainBalancedArmy();
+    }
+
+    // Core done but no council building --> save up for council and train stalkers
+    if (twilight_councils_built == 0 && num_minerals >= 275 && num_gas >= 150)
     {
         TrainBalancedArmy();
     }

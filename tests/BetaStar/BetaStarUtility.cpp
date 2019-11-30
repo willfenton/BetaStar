@@ -1089,14 +1089,16 @@ bool BetaStar::AlmostEqual(Point2D lhs, Point2D rhs, Point2D threshold)
 // Between 300 and 400 for high priority units
 // The return value has been made to be a range so that we can vary priority values within the range if we like
 
-int BetaStar::GetUnitAttackPriority(const Unit* unit) {
+int BetaStar::GetUnitAttackPriority(const Unit* unit, Point2D army_centroid) {
+    double distance_to_army = DistanceSquared2D(unit->pos, army_centroid);
+    double distance_weight = 0.1;
     switch (enemy_race) {
     case Race::Protoss:
-        return GetProtossUnitAttackPriority(unit);
+        return GetProtossUnitAttackPriority(unit) - (distance_to_army * distance_weight);
     case Race::Terran:
-        return GetTerranUnitAttackPriority(unit);
+        return GetTerranUnitAttackPriority(unit) - (distance_to_army * distance_weight);
     case Race::Zerg:
-        return GetZergUnitAttackPriority(unit);
+        return GetZergUnitAttackPriority(unit) - (distance_to_army * distance_weight);
     case Race::Random:
         std::cout << "Enemy Race not yet detected";
         return -1;
@@ -1118,6 +1120,8 @@ int BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
         case UNIT_TYPEID::PROTOSS_SENTRY:
         case UNIT_TYPEID::PROTOSS_PHOTONCANNON:
             return 300;
+        case UNIT_TYPEID::PROTOSS_IMMORTAL:
+            return 225;
         // default units with weapons will be 199
         case UNIT_TYPEID::PROTOSS_OBSERVER:
             return AlmostEqual(army_ratios[UNIT_TYPEID::PROTOSS_DARKTEMPLAR], 0.0f) ? 0 : 150;
