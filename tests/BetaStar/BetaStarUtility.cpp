@@ -1108,7 +1108,7 @@ bool BetaStar::AlmostEqual(Point2D lhs, Point2D rhs, Point2D threshold)
 // Between 300 and 400 for high priority units
 // The return value has been made to be a range so that we can vary priority values within the range if we like
 
-int BetaStar::GetUnitAttackPriority(const Unit* unit, Point2D army_centroid) {
+double BetaStar::GetUnitAttackPriority(const Unit* unit, Point2D army_centroid) {
     double distance_to_army = DistanceSquared2D(unit->pos, army_centroid);
     double distance_weight = 0.1;
     switch (enemy_race) {
@@ -1127,7 +1127,7 @@ int BetaStar::GetUnitAttackPriority(const Unit* unit, Point2D army_centroid) {
     }
 }
 
-int BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
+double BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
     // Order in descending priority, except for the default case
     switch ((unit->unit_type).ToType()) {
         case UNIT_TYPEID::PROTOSS_DARKTEMPLAR:
@@ -1163,7 +1163,7 @@ int BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
     }
 }
 
-int BetaStar::GetTerranUnitAttackPriority(const Unit* unit) {
+double BetaStar::GetTerranUnitAttackPriority(const Unit* unit) {
     // Order in descending priority, except for the default case
     switch ((unit->unit_type).ToType()) {
         case UNIT_TYPEID::TERRAN_GHOST:
@@ -1178,13 +1178,13 @@ int BetaStar::GetTerranUnitAttackPriority(const Unit* unit) {
         case UNIT_TYPEID::TERRAN_MARINE:
         case UNIT_TYPEID::TERRAN_REAPER:
             return 150;
+        case UNIT_TYPEID::TERRAN_SCV:
+            return 125;
         case UNIT_TYPEID::TERRAN_COMMANDCENTER:
         case UNIT_TYPEID::TERRAN_COMMANDCENTERFLYING:
         case UNIT_TYPEID::TERRAN_ORBITALCOMMAND:
         case UNIT_TYPEID::TERRAN_ORBITALCOMMANDFLYING:
             return 125;
-        case UNIT_TYPEID::TERRAN_SCV:
-            return 110;
         case UNIT_TYPEID::TERRAN_FACTORY:
         case UNIT_TYPEID::TERRAN_BARRACKS:
         case UNIT_TYPEID::TERRAN_STARPORT:
@@ -1196,7 +1196,7 @@ int BetaStar::GetTerranUnitAttackPriority(const Unit* unit) {
     }
 }
 
-int BetaStar::GetZergUnitAttackPriority(const Unit* unit) {
+double BetaStar::GetZergUnitAttackPriority(const Unit* unit) {
     // Order in descending priority, except for the default case
     switch ((unit->unit_type).ToType()) {
         case UNIT_TYPEID::ZERG_BROODLORD:
@@ -1231,7 +1231,7 @@ int BetaStar::GetZergUnitAttackPriority(const Unit* unit) {
     }
 }
 
-int BetaStar::GenericPriorityFallbacks(const Unit* unit)
+double BetaStar::GenericPriorityFallbacks(const Unit* unit)
 {
     // Units with weapons are more dangerous
     if (all_unit_type_data[unit->unit_type].weapons.size() > 0)

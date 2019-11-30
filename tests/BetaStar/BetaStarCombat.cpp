@@ -131,10 +131,10 @@ void BetaStar::BaseDefenseMacro(const Units units)
     for (const auto& unit : units) {
         float distance_from_base = DistanceSquared2D(unit->pos, m_starting_pos);
         if (!m_attacking && distance_from_base > 2500) {
-            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_starting_pos);
+            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_army_rally_point);
         }
         else if (unit->orders.size() == 0 && distance_from_base >= 500 && distance_from_base <= 2500) {
-            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_starting_pos);
+            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_army_rally_point);
         }
     }
 }
@@ -249,7 +249,7 @@ void BetaStar::TargetingMicro(const Units units, Units enemy_units)
     //The first entry in the enemy_units vector after sorting is one of the highest priority
     HighestPriorityUnits.push_back(enemy_units[0]); //valid since enemy_units is non-empty;
     //Find its priority level
-    int HighestPriorityLevel = GetUnitAttackPriority(enemy_units[0], army_centroid);
+    double HighestPriorityLevel = GetUnitAttackPriority(enemy_units[0], army_centroid);
     //Find all other units with same priority level (should be at the beginning of sorted enemy_units vector)
     for (const Unit* en_unit : enemy_units) {
         if (GetUnitAttackPriority(en_unit, army_centroid) == HighestPriorityLevel) {
@@ -259,7 +259,7 @@ void BetaStar::TargetingMicro(const Units units, Units enemy_units)
 
     //Find all highest priority ground enemy units 
     Units HighestGroundPriorityUnits;
-    int HighestGroundPriorityLevel;
+    double HighestGroundPriorityLevel;
     bool HighestGroundPriroityLevelFound = false;
     //Iterate through all enemy units
     for (const Unit* en_unit : enemy_units) {

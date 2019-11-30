@@ -63,6 +63,8 @@ void BetaStar::OnGameStart()
     m_starting_quadrant = GetQuadrantByPoint(m_starting_pos);
     std::cout << "Start location: (" << m_starting_pos.x << "," << m_starting_pos.y << ")" << std::endl;
 
+    m_army_rally_point = RotatePosition(m_army_rally_point, m_starting_quadrant);
+
     // calculate all expansion locations (this takes a while so we do it at the start of the game)
     m_expansion_locations = search::CalculateExpansionLocations(Observation(), Query());
 
@@ -201,6 +203,16 @@ void BetaStar::OnUpgradeCompleted(UpgradeID upgrade_id)
             break;
         }
         default: {
+            break;
+        }
+    }
+}
+
+void BetaStar::OnUnitCreated(const Unit *unit)
+{
+    switch (unit->unit_type.ToType()) {
+        case UNIT_TYPEID::PROTOSS_STALKER: {
+            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_army_rally_point, true);
             break;
         }
     }

@@ -710,6 +710,11 @@ void BetaStar::OnStepManageArmy()
         {
             BaseDefenseMacro(FriendlyUnitsOfType(m_worker_typeid));
         }
+        for (const auto& stalker : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_STALKER)) {
+            if (stalker->orders.empty() && DistanceSquared2D(stalker->pos, m_army_rally_point) > 5) {
+                Actions()->UnitCommand(stalker, ABILITY_ID::MOVE, m_army_rally_point);
+            }
+        }
     }
     // attack enemy base
     else

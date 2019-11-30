@@ -140,6 +140,8 @@ public:
 
     virtual void OnUpgradeCompleted(UpgradeID upgrade_id) final;
 
+    virtual void OnUnitCreated(const Unit *unit) final;
+
 private:
 
     /* ON-STEP FUNCTIONS */
@@ -275,13 +277,13 @@ private:
     // Between 200 and 300 for medium priority units
     // Between 300 and 400 for high priority units
     // The return value has been made to be a range so that we can vary priority values within the range if we like
-    int GetUnitAttackPriority(const Unit* unit, Point2D army_centroid);
+    double GetUnitAttackPriority(const Unit* unit, Point2D army_centroid);
 
     //Helper functions for GetUnitAttackPriority
-    int GetProtossUnitAttackPriority(const Unit* unit);
-    int GetTerranUnitAttackPriority(const Unit* unit);
-    int GetZergUnitAttackPriority(const Unit* unit);
-    int GenericPriorityFallbacks(const Unit* unit);
+    double GetProtossUnitAttackPriority(const Unit* unit);
+    double GetTerranUnitAttackPriority(const Unit* unit);
+    double GetZergUnitAttackPriority(const Unit* unit);
+    double GenericPriorityFallbacks(const Unit* unit);
 
     //Returns a boolean depending on whether the unit passed as argument can attack air units or not
     bool CanAttackAirUnits(const Unit* unit);
@@ -311,6 +313,8 @@ private:
     // position of our starting base
     Point3D m_starting_pos;
     int m_starting_quadrant;
+
+    Point2D m_army_rally_point = Point2D(28, 48);
 
     std::vector<Point2D> m_first_pylon_positions = { Point2D(43, 34), Point2D(33, 43) };
     std::vector<Point2D> m_placed_pylon_positions;
