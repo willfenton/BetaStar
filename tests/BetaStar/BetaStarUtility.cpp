@@ -718,7 +718,7 @@ Point2D BetaStar::GetUnitsCentroid(const Units units)
     return centroid / (float)units.size();
 }
 
-Point2D BetaStar::GetUnitsCentroidNearPoint(const Units units, float unitFrac, Point2D desiredTarget)
+Point2D BetaStar::GetUnitsCentroidNearPoint(Units units, float unitFrac, Point2D desiredTarget)
 {
     // Can't work with 0 units
     if (AlmostEqual(unitFrac, 0.0f))

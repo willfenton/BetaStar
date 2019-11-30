@@ -355,10 +355,10 @@ void BetaStar::StalkerBlinkMicro()
                 targetSize = targetUnit->radius;
             }
             // If we still don't have a valid enemy target, see if we have a position that our order is targeting
-            else
-            {
-                targetPoint = stalker->orders[0].target_pos;
-            }
+            //else
+            //{
+            //    targetPoint = stalker->orders[0].target_pos;
+            //}
 
             // Exit if we haven't found a valid target point
             if (AlmostEqual(targetPoint, Point2D(0.0f, 0.0f)))
