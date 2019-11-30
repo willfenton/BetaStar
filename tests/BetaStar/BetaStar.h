@@ -330,6 +330,7 @@ private:
     bool m_blink_researched = false;
 
     bool m_attacking = false;
+    bool m_all_workers = true;
     bool m_searching_new_enemy_base = false;
     //std::vector<Point2D> m_visited_expansion_locations;
     std::vector<Point2D> m_open_expansion_locations;
