@@ -239,7 +239,7 @@ void BetaStar::TargetingMicro(const Units units, Units enemy_units)
         return;
     }
 
-    Point2D army_centroid = GetUnitsCentroid(units);
+    Point2D army_centroid = GetUnitsCentroidNearPoint(units, 0.25f, GetUnitsCentroid(enemy_units));;
 
     //Sort Enemy Units By Targeting Priority
     std::sort(std::begin(enemy_units), std::end(enemy_units), IsHigherPriority(this, army_centroid));
@@ -284,24 +284,22 @@ void BetaStar::TargetingMicro(const Units units, Units enemy_units)
         }
     }
 
-    Point2D unitCentroid = GetUnitsCentroidNearPoint(units, 0.25f, GetUnitsCentroid(enemy_units));
-
     //Iterate through all our units that are on offence
     for (const Unit* myUnit : units) {
         // If the unit can attack flying units, then attack the closest highest priority unit to the group (focus fire)
         if (CanAttackAirUnits(myUnit)) {
-            const Unit* UnitToAttack = GetClosestUnit(unitCentroid, HighestPriorityUnits);
+            const Unit* UnitToAttack = GetClosestUnit(army_centroid, HighestPriorityUnits);
             Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, UnitToAttack);
         }
         // If the unit can't attack flying units, teh attack the closest highest priority ground unit to the group (focus fire)
         else if (!HighestGroundPriorityUnits.empty()) {
-            const Unit* GroundUnitToAttack = GetClosestUnit(unitCentroid, HighestGroundPriorityUnits);
+            const Unit* GroundUnitToAttack = GetClosestUnit(army_centroid, HighestGroundPriorityUnits);
             Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, GroundUnitToAttack);
         }
         // If they don't have a good option, attack move in the right direction
         else
         {
-            Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, GetClosestUnit(unitCentroid, enemy_units)->pos);
+            Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, GetClosestUnit(army_centroid, enemy_units)->pos);
         }
     }
 }

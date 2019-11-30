@@ -722,7 +722,7 @@ Point2D BetaStar::GetUnitsCentroidNearPoint(const Units units, float unitFrac, P
 {
     // Can't work with 0 units
     if (AlmostEqual(unitFrac, 0.0f))
-        return;
+        return Point2D(96, 96);
 
     std::sort(units.begin(), units.end(), IsCloser(desiredTarget));
 
