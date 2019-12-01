@@ -709,6 +709,11 @@ const Unit* BetaStar::GetClosestUnit(Point2D position, const Units units)
 
 Point2D BetaStar::GetUnitsCentroid(const Units units)
 {
+    if (units.empty())
+    {
+        return Point2D(96, 96);
+    }
+
     Point2D centroid(0, 0);
     for (const Unit *unit : units)
     {
@@ -721,12 +726,12 @@ Point2D BetaStar::GetUnitsCentroid(const Units units)
 Point2D BetaStar::GetUnitsCentroidNearPoint(Units units, float unitFrac, Point2D desiredTarget)
 {
     // Can't work with 0 units
-    if (AlmostEqual(unitFrac, 0.0f))
+    if (AlmostEqual(unitFrac, 0.0f) || units.empty())
         return Point2D(96, 96);
 
     std::sort(units.begin(), units.end(), IsCloser(desiredTarget));
 
-    int nUnits = ceil(units.size() * unitFrac);
+    int nUnits = (int)ceil(units.size() * unitFrac);
 
     Point2D centroid(0.0f, 0.0f);
     for (size_t i = 0; i < nUnits; ++i)
@@ -1119,11 +1124,11 @@ double BetaStar::GetUnitAttackPriority(const Unit* unit, Point2D army_centroid) 
     case Race::Zerg:
         return GetZergUnitAttackPriority(unit) - (distance_to_army * distance_weight);
     case Race::Random:
-        std::cout << "Enemy Race not yet detected";
-        return -1;
+        std::cout << "Enemy Race not yet detected. Using fallbacks.";
+        return GenericPriorityFallbacks(unit) - (distance_to_army * distance_weight);
     default:
         std::cout << "Should not be reached";
-        return -2;
+        return -1;
     }
 }
 

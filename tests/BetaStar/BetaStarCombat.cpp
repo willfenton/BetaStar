@@ -284,58 +284,56 @@ void BetaStar::TargetingMicro(const Units units, Units enemy_units)
         }
     }
 
-    //Iterate through all our units that are on offence
+    const Unit* airUnitToAttack = GetClosestUnit(army_centroid, HighestPriorityUnits);
+    const Unit* groundUnitToAttack = GetClosestUnit(army_centroid, HighestGroundPriorityUnits);
+    const Point2D strictlyClosestUnitPos = GetClosestUnit(army_centroid, enemy_units)->pos;
+
+    //Iterate through all our units that are on offense
     for (const Unit* myUnit : units) {
         // If the unit can attack flying units, then attack the closest highest priority unit to the group (focus fire)
         if (CanAttackAirUnits(myUnit)) {
-            const Unit* UnitToAttack = GetClosestUnit(army_centroid, HighestPriorityUnits);
-            Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, UnitToAttack);
+            Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, airUnitToAttack);
         }
         // If the unit can't attack flying units, teh attack the closest highest priority ground unit to the group (focus fire)
         else if (!HighestGroundPriorityUnits.empty()) {
-            const Unit* GroundUnitToAttack = GetClosestUnit(army_centroid, HighestGroundPriorityUnits);
-            Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, GroundUnitToAttack);
+            Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, groundUnitToAttack);
         }
         // If they don't have a good option, attack move in the right direction
         else
         {
-            Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, GetClosestUnit(army_centroid, enemy_units)->pos);
+            Actions()->UnitCommand(myUnit, ABILITY_ID::ATTACK, strictlyClosestUnitPos);
         }
     }
 }
 
-// MODIFIED FROM EXAMPLE BOT
 void BetaStar::StalkerBlinkMicro()
 {
     if (!m_blink_researched)
         return;
 
     Units stalkers = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_STALKER);
+    if (stalkers.empty())
+    {
+        return;
+    }
+
     float weaponDist = all_unit_type_data[UnitTypeID(UNIT_TYPEID::PROTOSS_STALKER)].weapons[0].range;
+    Point2D enemyCentroid = GetUnitsCentroid(Observation()->GetUnits(Unit::Alliance::Enemy));
 
     // THIS IS NOT ACCURATE - BLINK DOESN'T REALLY HAVE 500 RANGE
     //float blinkDist = all_ability_data[AbilityID(ABILITY_ID::EFFECT_BLINK)].cast_range;
     float blinkDist = 8.0f;
+    // at what shield percentage to blink away
+    float blinkBackThreshold = 0.1f;
 
     for (const auto& stalker : stalkers) {
-        const Unit *engaged_unit = Observation()->GetUnit(stalker->engaged_target_tag);
-        if (stalker->shield == 0 && stalker->health < stalker->health_max) {
-            const Unit* target_unit = Observation()->GetUnit(stalker->engaged_target_tag);
+        if (stalker->shield / stalker->shield_max < blinkBackThreshold) {
             Point2D blink_location = m_starting_pos;
-            if (stalker->shield < 1) {
-                if (!stalker->orders.empty()) {
-                    if (engaged_unit != nullptr) {
-                        Vector2D diff = stalker->pos - target_unit->pos;
-                        Normalize2D(diff);
-                        blink_location = stalker->pos + diff * 7.0f;
-                    }
-                    else {
-                        Vector2D diff = stalker->pos - m_starting_pos;
-                        Normalize2D(diff);
-                        blink_location = stalker->pos - diff * 7.0f;
-                    }
-                    Actions()->UnitCommand(stalker, ABILITY_ID::EFFECT_BLINK, blink_location);
-                }
+            if (!stalker->orders.empty()) {
+                Point2D diff = stalker->pos - enemyCentroid;
+                Normalize2D(diff);
+                blink_location = stalker->pos + diff * blinkDist;
+                Actions()->UnitCommand(stalker, ABILITY_ID::EFFECT_BLINK, blink_location);
             }
         }
         else if (!stalker->orders.empty())
@@ -369,11 +367,21 @@ void BetaStar::StalkerBlinkMicro()
             // Make sure the unit isn't already within weapons range of target before we blink
             if (crowDist > weaponDist + targetSize)
             {
+                float modifiedBlinkDist = blinkDist;
+                if (crowDist < blinkDist)
+                {
+                    // min blink is just in weapons range
+                    float minDist = crowDist - (weaponDist + targetSize);
+                    // max blink still leaves some room between stalkers and the unit
+                    float maxDist = crowDist - ((weaponDist / 2) + targetSize);
+                    modifiedBlinkDist = minDist + abs(GetRandomScalar() * (maxDist - minDist));
+                }
+
                 // TODO: If we don't have a unit target, we're probably moving. If we're moving, we could use the unit's
                 //       actual facing direction for blinks instead of wonky blinking directly toward the enemy base
                 Point2D diff = targetPoint - stalker->pos;
                 Normalize2D(diff);
-                Point2D blink_location = stalker->pos + (diff * blinkDist);
+                Point2D blink_location = stalker->pos + (diff * modifiedBlinkDist);
                 Actions()->UnitCommand(stalker, ABILITY_ID::EFFECT_BLINK, blink_location);
             }
         }
