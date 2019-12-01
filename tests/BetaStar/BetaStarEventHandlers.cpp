@@ -76,7 +76,7 @@ void BetaStar::OnGameStart()
     m_expansion_locations.push_back(Point2D(30.5f, 66.5f));
     m_expansion_locations.push_back(Point2D(35.5, 93.5));
     
-    for (size_t q = 1; q <= 3; ++q)
+    for (int q = 1; q <= 3; ++q)
     {
         for (size_t i = 0; i < 4; ++i)
         {
