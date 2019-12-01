@@ -1139,8 +1139,9 @@ double BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
         case UNIT_TYPEID::PROTOSS_DISRUPTOR:
         case UNIT_TYPEID::PROTOSS_HIGHTEMPLAR:
         case UNIT_TYPEID::PROTOSS_SENTRY:
-        case UNIT_TYPEID::PROTOSS_PHOTONCANNON:
             return 300;
+        case UNIT_TYPEID::PROTOSS_PHOTONCANNON:
+            return unit->is_powered ? 300 : 3;
         case UNIT_TYPEID::PROTOSS_IMMORTAL:
             return 225;
         // default units with weapons will be 199
@@ -1156,7 +1157,7 @@ double BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
         case UNIT_TYPEID::PROTOSS_WARPGATE:
         case UNIT_TYPEID::PROTOSS_STARGATE:
         case UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY:
-            return 100;
+            return unit->is_powered ? 100 : 2;
         // default units without weapons will be 99
 
         // default buildings without weapons will be 1
