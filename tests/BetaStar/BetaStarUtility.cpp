@@ -1097,36 +1097,52 @@ bool BetaStar::AlmostEqual(Point2D lhs, Point2D rhs, Point2D threshold)
     return abs(diff.x) <= threshold.x && abs(diff.y) <= threshold.y;
 }
 
-//Returns an integer:
-// Between 0 and 100 for structural units
-// Between 100 and 200 for low priority units
-// Between 200 and 300 for medium priority units
-// Between 300 and 400 for high priority units
-// The return value has been made to be a range so that we can vary priority values within the range if we like
-
+//Returns an double, higher for higher priority units
 double BetaStar::GetUnitAttackPriority(const Unit* unit, Point2D army_centroid) {
-    double distance_weight = 2;
-    double health_weight = 50;
+    double targeting_value = 0.0;
 
-    double distance_to_army = DistanceSquared2D(unit->pos, army_centroid);
-    double health_term = pow(1 - ((unit->health + unit->shield) / (unit->health_max + unit->shield_max)), 2) * health_weight;
+    // add a penalty to the targeting value based on distance to our army
+    double distance_weight = -3.0;
+    double no_penalty_range = 5.0;
+    double distance_to_army = Distance2D(unit->pos, army_centroid);
+    double distance_term = pow(std::max(0.0, distance_to_army - no_penalty_range), 2);
+    targeting_value += distance_term * distance_weight;
 
-    // TODO: don't factor in distance if the're in range
+    // add a bonus to the targeting value if the unit is low on health / shields
+    double health_weight = 50.0;
+    double unit_health_percent = ((unit->health + unit->shield) / (unit->health_max + unit->shield_max));
+    double health_term = pow(1 - unit_health_percent, 2);
+    targeting_value += health_term * health_weight;
 
+    // add a bonus to the targeting value based on the unit type
+    // Between 0 and 100 for structural units
+    // Between 100 and 200 for low priority units
+    // Between 200 and 300 for medium priority units
+    // Between 300 and 400 for high priority units
+    double priority_weight = 1.0;
+    double priority_value = std::numeric_limits<double>::min();
     switch (enemy_race) {
     case Race::Protoss:
-        return GetProtossUnitAttackPriority(unit) - (distance_to_army * distance_weight) + health_term;
+        priority_value = GetProtossUnitAttackPriority(unit);
+        break;
     case Race::Terran:
-        return GetTerranUnitAttackPriority(unit) - (distance_to_army * distance_weight) + health_term;
+        priority_value = GetTerranUnitAttackPriority(unit);
+        break;
     case Race::Zerg:
-        return GetZergUnitAttackPriority(unit) - (distance_to_army * distance_weight) + health_term;
+        priority_value = GetZergUnitAttackPriority(unit);
+        break;
     case Race::Random:
         std::cout << "Enemy Race not yet detected. Using fallbacks.";
-        return GenericPriorityFallbacks(unit) - (distance_to_army * distance_weight);
+        priority_value = GenericPriorityFallbacks(unit);
+        break;
     default:
         std::cout << "Should not be reached";
-        return -1;
+        return std::numeric_limits<double>::min();
     }
+    targeting_value += priority_value * priority_weight;
+
+    // return the final targeting value
+    return targeting_value;
 }
 
 double BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
