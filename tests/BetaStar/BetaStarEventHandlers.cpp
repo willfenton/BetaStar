@@ -136,6 +136,11 @@ void BetaStar::OnGameStart()
     SetStrategy(Strategy::Blink_Stalker_Rush);
 }
 
+void BetaStar::OnGameEnd()
+{
+    std::cout << GetGameTime() << " Game Over" << std::endl;
+}
+
 // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
 // Both buildings and units are considered units and are represented with a Unit object.
 void BetaStar::OnUnitIdle(const Unit* unit)

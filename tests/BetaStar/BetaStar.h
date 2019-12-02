@@ -125,6 +125,9 @@ public:
     // this function runs at the start of the game
     virtual void OnGameStart() final;
 
+    // this function runs at the end of the game
+    virtual void OnGameEnd() final;
+
     // called each time the coordinator steps the simulation forward
     virtual void OnStep() final;
 
