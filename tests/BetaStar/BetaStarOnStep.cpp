@@ -613,7 +613,7 @@ void BetaStar::OnStepBuildOrder()
         return;
     }
 
-    if (m_blink_researching && num_gases >= 2 && (num_gateways + num_warpgates) < 4 && num_minerals >= 150) {
+    if ((m_blink_researching || num_minerals >= 300) && num_gases >= 2 && (num_gateways + num_warpgates) < 4 && num_minerals >= 150) {
         TryBuildStructureNearPylon(UNIT_TYPEID::PROTOSS_GATEWAY, Point2D(m_starting_pos), 50.0f);
         return;
     }
@@ -680,23 +680,32 @@ void BetaStar::OnStepBuildArmy()
 
     // Blink researching --> build stalkers all you want
     if (m_blink_researching) {
+        // We often have excess minerals once the attack starts - might as well use them
+        if (num_minerals > 225 && num_gas < 50)
+        {
+            TrainUnit(UNIT_TYPEID::PROTOSS_ZEALOT);
+        }
         TrainBalancedArmy();
+        return;
     }
 
     // Twilight council done but blink not researched yet --> save up for blink and train stalkers
     if (twilight_councils_done > 0 && !m_blink_researching && num_minerals >= 275 && num_gas >= 200) {
         TrainBalancedArmy();
+        return;
     }
 
     // Twilight council building but not done --> save up for blink and train stalkers
     if (twilight_councils_built > 0 && num_minerals >= 275 && num_gas >= 200) {
         TrainBalancedArmy();
+        return;
     }
 
     // Core done but no council building --> save up for council and train stalkers
     if (twilight_councils_built == 0 && num_minerals >= 275 && num_gas >= 150)
     {
         TrainBalancedArmy();
+        return;
     }
 }
 
