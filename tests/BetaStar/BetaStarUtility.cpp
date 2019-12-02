@@ -1207,8 +1207,9 @@ double BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
 double BetaStar::GetTerranUnitAttackPriority(const Unit* unit) {
     // Order in descending priority, except for the default case
     switch ((unit->unit_type).ToType()) {
-        case UNIT_TYPEID::TERRAN_GHOST:
         case UNIT_TYPEID::TERRAN_SIEGETANK:
+            return 1000;
+        case UNIT_TYPEID::TERRAN_GHOST:
             return 400;
         case UNIT_TYPEID::TERRAN_BATTLECRUISER:
             return 300;
