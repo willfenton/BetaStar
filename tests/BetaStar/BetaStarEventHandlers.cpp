@@ -20,7 +20,11 @@ void BetaStar::OnStep() {
         }
     }
 
-    OnStepTrainWorkers();
+    //OnStepTrainWorkers();
+
+    if (m_first_pylon_built) {
+        OnStepTrainWorkers();
+    }
 
     // for finding positions of points
     //for (const auto& pylon : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_PYLON)) {

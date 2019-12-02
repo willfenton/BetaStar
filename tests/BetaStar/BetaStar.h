@@ -325,6 +325,8 @@ private:
     bool m_forward_pylon_built = false;
     bool m_forward_pylon_complete = false;
 
+    bool m_first_pylon_built = false;
+
     std::vector<Point2D> m_first_pylon_positions = { Point2D(43, 34), Point2D(33, 43) };
     std::vector<Point2D> m_placed_pylon_positions;
 

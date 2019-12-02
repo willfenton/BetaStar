@@ -553,6 +553,10 @@ void BetaStar::OnStepBuildOrder()
     size_t num_cybernetics_cores = CountUnitType(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE);
     size_t num_twilight_councils = CountUnitType(UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
 
+    if (!m_first_pylon_built && num_pylons >= 1) {
+        m_first_pylon_built = true;
+    }
+
     // Determine if a structure has been destroyed
     for (int i = 0; i < m_buildings.size(); ++i) {
         auto& building_info = m_buildings[i];
