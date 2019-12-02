@@ -65,7 +65,7 @@ void BetaStar::OnGameStart()
     // get position of first command center
     m_starting_pos = observation->GetStartLocation();
     m_starting_quadrant = GetQuadrantByPoint(m_starting_pos);
-    std::cout << "Start location: (" << m_starting_pos.x << "," << m_starting_pos.y << ")" << std::endl;
+    //std::cout << "Start location: (" << m_starting_pos.x << "," << m_starting_pos.y << ")" << std::endl;
 
     // Decent default values in the case where something goes wrong with scouting
     m_enemy_base_pos = m_starting_pos;
@@ -139,6 +139,27 @@ void BetaStar::OnGameStart()
 void BetaStar::OnGameEnd()
 {
     std::cout << GetGameTime() << " Game Over" << std::endl;
+    for (PlayerResult result : Observation()->GetResults())
+    {
+        std::string resultString = "ERROR";
+        switch (result.result)
+        {
+            case GameResult::Loss:
+                resultString = "Loss";
+                break;
+            case GameResult::Tie:
+                resultString = "Tie";
+                break;
+            case GameResult::Undecided:
+                resultString = "Undecided";
+                break;
+            case GameResult::Win:
+                resultString = "Win";
+                break;
+        }
+
+        std::cout << "Player " << result.player_id << ": " << resultString << std::endl;
+    }
 }
 
 // Called each time a unit has been built and has no orders or the unit had orders in the previous step and currently does not
@@ -166,7 +187,7 @@ void BetaStar::OnBuildingConstructionComplete(const Unit* unit)
 
         case UNIT_TYPEID::PROTOSS_PYLON: {
             if (!m_forward_pylon_complete && DistanceSquared2D(unit->pos, m_forward_pylon_pos) < 10) {
-                std::cout << "Proxy pylon completed" << std::endl;
+                //std::cout << "Proxy pylon completed" << std::endl;
                 m_forward_pylon_complete = true;
             }
             break;
@@ -189,7 +210,7 @@ void BetaStar::OnUnitEnterVision(const Unit* unit)
             }
         }
         if (closest_distance < std::numeric_limits<float>::max()) {
-            std::cout << "Enemy start location found: (" << closest_enemy_start_location.x << "," << closest_enemy_start_location.y << ")" << std::endl;
+            //std::cout << "Enemy start location found: (" << closest_enemy_start_location.x << "," << closest_enemy_start_location.y << ")" << std::endl;
             m_enemy_base_pos = closest_enemy_start_location;
             m_enemy_base_quadrant = GetQuadrantByPoint(m_enemy_base_pos);
             m_forward_pylon_pos = RotatePosition(m_forward_pylon_pos, m_enemy_base_quadrant);
@@ -222,12 +243,12 @@ void BetaStar::OnUpgradeCompleted(UpgradeID upgrade_id)
 
     switch (upgrade_id.ToType()) {
         case UPGRADE_ID::WARPGATERESEARCH: {
-            std::cout << "Warpgate research complete" << std::endl;
+            //std::cout << "Warpgate research complete" << std::endl;
             m_warpgate_researched = true;
             break;
         }
         case UPGRADE_ID::BLINKTECH: {
-            std::cout << "Blink research complete" << std::endl;
+            //std::cout << "Blink research complete" << std::endl;
             m_blink_researched = true;
             break;
         }
@@ -266,7 +287,7 @@ void BetaStar::OnUnitDestroyed(const Unit *unit)
                     }
                 }
                 if (closest_distance < std::numeric_limits<float>::max()) {
-                    std::cout << "Enemy start location guessed: (" << closest_enemy_start_location.x << "," << closest_enemy_start_location.y << ")" << std::endl;
+                    //std::cout << "Enemy start location guessed: (" << closest_enemy_start_location.x << "," << closest_enemy_start_location.y << ")" << std::endl;
                     m_enemy_base_pos = closest_enemy_start_location;
                     m_enemy_base_quadrant = GetQuadrantByPoint(m_enemy_base_pos);
                     m_forward_pylon_pos = RotatePosition(m_forward_pylon_pos, m_enemy_base_quadrant);

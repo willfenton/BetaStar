@@ -8,7 +8,7 @@ void BetaStar::GatherIntelligence(const Unit *unit)
     if (enemy_race == Race::Random)
     {
         enemy_race = all_unit_type_data[unit->unit_type].race;
-        switch (enemy_race)
+        /*switch (enemy_race)
         {
             case Race::Protoss:
                 std::cout << "Enemy is Protoss" << std::endl;
@@ -22,7 +22,7 @@ void BetaStar::GatherIntelligence(const Unit *unit)
             default:
                 std::cout << "Enemy is [ERROR]" << std::endl;
                 break;
-        }
+        }*/
     }
 
     // detect air units
@@ -31,7 +31,7 @@ void BetaStar::GatherIntelligence(const Unit *unit)
         if (!all_unit_type_data[unit->unit_type].weapons.empty())
         {
             has_flying = true;
-            std::cout << "Enemy has flying units that can attack" << std::endl;
+            //std::cout << "Enemy has flying units that can attack" << std::endl;
         }
     }
 
@@ -41,7 +41,7 @@ void BetaStar::GatherIntelligence(const Unit *unit)
         if (!all_unit_type_data[unit->unit_type].weapons.empty())
         {
             has_cloaked = true;
-            std::cout << "Enemy has cloaked units that can attack" << std::endl;
+            //std::cout << "Enemy has cloaked units that can attack" << std::endl;
         }
     }
 
@@ -49,7 +49,7 @@ void BetaStar::GatherIntelligence(const Unit *unit)
     if (!has_detection && unit->detect_range > 0.1f)
     {
         has_detection = true;
-        std::cout << "Enemy has detection units" << std::endl;
+        //std::cout << "Enemy has detection units" << std::endl;
     }
 
     // detect a rush and/or other strats that pose threat to our main base
@@ -60,7 +60,7 @@ void BetaStar::GatherIntelligence(const Unit *unit)
         if (!building_near_our_base && (IsStructure(unit->unit_type) || unit->unit_type == UNIT_TYPEID::TERRAN_SIEGETANKSIEGED))
         {
             building_near_our_base = true;
-            std::cout << "Enemy building near our base" << std::endl;
+            //std::cout << "Enemy building near our base" << std::endl;
         }
 
         // Rush detection
@@ -87,7 +87,7 @@ void BetaStar::GatherIntelligence(const Unit *unit)
             if (rush_units.size() >= rushNumber)
             {
                 rush_detected = true;
-                std::cout << "Rush Detected" << std::endl;
+                //std::cout << "Rush Detected" << std::endl;
             }
 
             last_detected_at_base_time = currentTime;
