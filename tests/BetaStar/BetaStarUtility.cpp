@@ -106,7 +106,29 @@ bool BetaStar::TrainUnit(const Unit *building, UnitTypeID unitType)
     // building at a warpgate instead of a gateway (warp close to warpgate)
     if (unitBuilder == UNIT_TYPEID::PROTOSS_GATEWAY && building->unit_type == UNIT_TYPEID::PROTOSS_WARPGATE)
     {
-        return WarpUnit(building, GetUnitsCentroid(FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_STALKER)), unitType);
+        if (!m_attacking)
+        {
+            return WarpUnit(building, m_starting_pos, unitType);
+        }
+        else
+        {
+            Units friendlyArmy = GetFriendlyArmyUnits();
+            if (friendlyArmy.empty())
+            {
+                return WarpUnit(building, m_starting_pos, unitType);
+            }
+            else
+            {
+                if (m_attacking)
+                {
+                    return WarpUnit(building, GetUnitsCentroidNearPoint(friendlyArmy, 0.25f, m_enemy_base_pos), unitType);
+                }
+                else
+                {
+                    return WarpUnit(building, GetUnitsCentroid(friendlyArmy), unitType);
+                }
+            }
+        }
     }
     // normal training process
     else if (unitBuilder == building->unit_type)
@@ -1274,4 +1296,16 @@ bool BetaStar::CanAttackAirUnits(const Unit* unit) {
         }
     }
     return false;
+}
+
+Units BetaStar::GetFriendlyArmyUnits()
+{
+    const ObservationInterface *observation = Observation();
+    Units army = observation->GetUnits(Unit::Alliance::Self, BetterIsUnit(managed_unit_types[0]));
+    for (size_t i = 1; i < managed_unit_types.size(); ++i)
+    {
+        Units moreUnits = observation->GetUnits(Unit::Alliance::Self, BetterIsUnit(managed_unit_types[i]));
+        army.insert(army.begin(), moreUnits.begin(), moreUnits.end());
+    }
+    return army;
 }

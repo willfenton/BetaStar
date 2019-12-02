@@ -243,6 +243,9 @@ private:
     // Sets all unit ratios to 0.0f - nothing will be built after this is called unless ratios are set
     void ClearArmyRatios();
 
+    // Gets all of our regular army units
+    Units GetFriendlyArmyUnits();
+
     // Counts all units of specified type
     // If includeIncomplete = true (default) buildings under construction and units in the production queue are counted
     size_t BetaStar::CountUnitType(UnitTypeID unitType, bool includeIncomplete = true);
