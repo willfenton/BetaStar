@@ -740,7 +740,15 @@ void BetaStar::OnStepManageArmy()
         }
         if (rush_detected && m_all_workers)
         {
-            BaseDefenseMacro(FriendlyUnitsOfType(m_worker_typeid));
+            Units attack_workers = FriendlyUnitsOfType(m_worker_typeid);
+            for (int i = 0; i < attack_workers.size(); ++i)
+            {
+                if (attack_workers[i]->tag == m_initial_scouting_probe->tag)
+                {
+                    attack_workers.erase(attack_workers.begin() + i);
+                }
+            }
+            BaseDefenseMacro(attack_workers);
         }
         for (const auto& stalker : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_STALKER)) {
             if (stalker->orders.empty() && DistanceSquared2D(stalker->pos, m_army_rally_pos) > 10) {
