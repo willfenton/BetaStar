@@ -707,12 +707,12 @@ void BetaStar::OnStepManageArmy()
     switch (m_current_strategy)
     {
         case Strategy::Blink_Stalker_Rush:
-            if (!m_attacking && m_blink_researched && m_enemy_base_scouted && Observation()->GetArmyCount() >= 12) {
+            if (!m_attacking && m_blink_researched && Observation()->GetArmyCount() >= 12) {
                 m_attacking = true;
             }
             break;
         default:
-            if (!m_attacking && m_blink_researched && m_enemy_base_scouted && Observation()->GetArmyCount() >= 20) {
+            if (!m_attacking && m_blink_researched && Observation()->GetArmyCount() >= 20) {
                 m_attacking = true;
             }
             break;
