@@ -239,6 +239,10 @@ void BetaStar::OnUnitCreated(const Unit *unit)
             Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_army_rally_pos, true);
             break;
         }
+        case UNIT_TYPEID::PROTOSS_ZEALOT: {
+            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_army_rally_pos, true);
+            break;
+        }
     }
 }
 

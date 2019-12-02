@@ -592,6 +592,11 @@ void BetaStar::OnStepBuildOrder()
         }
     }
 
+    if (!m_blink_researched && num_cybernetics_cores >= 1 && num_pylons >= 1 && (num_gateways + num_warpgates) >= 1 && CountUnitType(UNIT_TYPEID::PROTOSS_ZEALOT) == 0 && num_minerals >= 100) {
+        TrainUnit(UNIT_TYPEID::PROTOSS_ZEALOT);
+        return;
+    }
+
     if (num_pylons >= 1 && (num_gateways + num_warpgates) < 1 && num_minerals >= 150) {
         TryBuildStructureNearPylon(UNIT_TYPEID::PROTOSS_GATEWAY, Point2D(m_starting_pos), 50.0f);
         return;
