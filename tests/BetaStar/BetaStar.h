@@ -316,7 +316,11 @@ private:
     Point3D m_starting_pos;
     int m_starting_quadrant;
 
-    Point2D m_army_rally_point = Point2D(28, 48);
+    Point2D m_army_rally_pos = Point2D(28, 48);
+
+    Point2D m_forward_pylon_pos = Point2D(85, 61);
+    bool m_forward_pylon_built = false;
+    bool m_forward_pylon_complete = false;
 
     std::vector<Point2D> m_first_pylon_positions = { Point2D(43, 34), Point2D(33, 43) };
     std::vector<Point2D> m_placed_pylon_positions;

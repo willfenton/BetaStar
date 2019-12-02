@@ -565,8 +565,31 @@ void BetaStar::OnStepBuildOrder()
         }
     }
 
+    if (num_gateways > 0 && !m_forward_pylon_built && m_enemy_base_scouted && num_minerals >= 100 && m_initial_scouting_probe->is_alive) {
+        Point2D pylon_pos = m_forward_pylon_pos;
+
+        for (const auto& pylon : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_PYLON)) {
+            if (DistanceSquared2D(pylon->pos, m_forward_pylon_pos) < 10) {
+                m_forward_pylon_built = true;
+                return;
+            }
+        }
+
+        for (const auto& order : m_initial_scouting_probe->orders) {
+            if (order.ability_id == ABILITY_ID::BUILD_PYLON) {
+                return;
+            }
+        }
+
+        if (Query()->Placement(ABILITY_ID::BUILD_PYLON, pylon_pos, m_initial_scouting_probe)) {
+            Actions()->UnitCommand(m_initial_scouting_probe, ABILITY_ID::BUILD_PYLON, pylon_pos);
+            Actions()->UnitCommand(m_initial_scouting_probe, ABILITY_ID::MOVE, m_starting_pos, true);
+            return;
+        }
+    }
+
     if (num_pylons >= 1 && (num_gateways + num_warpgates) < 1 && num_minerals >= 150) {
-        TryBuildStructureNearPylon(ABILITY_ID::BUILD_GATEWAY, m_worker_typeid);
+        TryBuildStructureNearPylon(UNIT_TYPEID::PROTOSS_GATEWAY, Point2D(m_starting_pos), 50.0f);
         return;
     }
 
@@ -576,12 +599,12 @@ void BetaStar::OnStepBuildOrder()
     }
 
     if (num_gases > 0 && num_cybernetics_cores < 1 && num_minerals >= 150) {
-        TryBuildStructureNearPylon(ABILITY_ID::BUILD_CYBERNETICSCORE, m_worker_typeid);
+        TryBuildStructureNearPylon(UNIT_TYPEID::PROTOSS_CYBERNETICSCORE, Point2D(m_starting_pos), 50.0f);
         return;
     }
 
     if (num_twilight_councils < 1 && num_cybernetics_cores > 0 && num_minerals >= 150 && num_gas >= 100) {
-        TryBuildStructureNearPylon(ABILITY_ID::BUILD_TWILIGHTCOUNCIL, m_worker_typeid);
+        TryBuildStructureNearPylon(UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL, Point2D(m_starting_pos), 50.0f);
         return;
     }
 
@@ -591,7 +614,7 @@ void BetaStar::OnStepBuildOrder()
     }
 
     if (m_blink_researching && num_gases >= 2 && (num_gateways + num_warpgates) < 4 && num_minerals >= 150) {
-        TryBuildStructureNearPylon(ABILITY_ID::BUILD_GATEWAY, m_worker_typeid);
+        TryBuildStructureNearPylon(UNIT_TYPEID::PROTOSS_GATEWAY, Point2D(m_starting_pos), 50.0f);
         return;
     }
 }
@@ -711,8 +734,8 @@ void BetaStar::OnStepManageArmy()
             BaseDefenseMacro(FriendlyUnitsOfType(m_worker_typeid));
         }
         for (const auto& stalker : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_STALKER)) {
-            if (stalker->orders.empty() && DistanceSquared2D(stalker->pos, m_army_rally_point) > 10) {
-                Actions()->UnitCommand(stalker, ABILITY_ID::MOVE, m_army_rally_point);
+            if (stalker->orders.empty() && DistanceSquared2D(stalker->pos, m_army_rally_pos) > 10) {
+                Actions()->UnitCommand(stalker, ABILITY_ID::MOVE, m_army_rally_pos);
             }
         }
     }

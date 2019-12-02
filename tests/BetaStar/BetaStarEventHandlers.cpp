@@ -63,7 +63,7 @@ void BetaStar::OnGameStart()
     m_starting_quadrant = GetQuadrantByPoint(m_starting_pos);
     std::cout << "Start location: (" << m_starting_pos.x << "," << m_starting_pos.y << ")" << std::endl;
 
-    m_army_rally_point = RotatePosition(m_army_rally_point, m_starting_quadrant);
+    m_army_rally_pos = RotatePosition(m_army_rally_pos, m_starting_quadrant);
 
     // calculate all expansion locations (this takes a while so we do it at the start of the game)
     // m_expansion_locations = search::CalculateExpansionLocations(Observation(), Query());
@@ -149,13 +149,16 @@ void BetaStar::OnUnitIdle(const Unit* unit)
 
 void BetaStar::OnBuildingConstructionComplete(const Unit* unit)
 {
-    /*switch (unit->unit_type.ToType()) {
+    switch (unit->unit_type.ToType()) {
 
-        case UNIT_TYPEID::PROTOSS_NEXUS: {
-            m_building_nexus = false;
+        case UNIT_TYPEID::PROTOSS_PYLON: {
+            if (!m_forward_pylon_complete && DistanceSquared2D(unit->pos, m_forward_pylon_pos) < 10) {
+                std::cout << "Proxy pylon completed" << std::endl;
+                m_forward_pylon_complete = true;
+            }
             break;
         }
-    }*/
+    }
 }
 
 void BetaStar::OnUnitEnterVision(const Unit* unit)
@@ -176,6 +179,7 @@ void BetaStar::OnUnitEnterVision(const Unit* unit)
             std::cout << "Enemy start location found: (" << closest_enemy_start_location.x << "," << closest_enemy_start_location.y << ")" << std::endl;
             m_enemy_base_pos = closest_enemy_start_location;
             m_enemy_base_quadrant = GetQuadrantByPoint(m_enemy_base_pos);
+            m_forward_pylon_pos = RotatePosition(m_forward_pylon_pos, m_enemy_base_quadrant);
             m_enemy_base_scouted = true;
             Actions()->UnitCommand(m_initial_scouting_probe, ABILITY_ID::MOVE, m_starting_pos);
         }
@@ -224,7 +228,7 @@ void BetaStar::OnUnitCreated(const Unit *unit)
 {
     switch (unit->unit_type.ToType()) {
         case UNIT_TYPEID::PROTOSS_STALKER: {
-            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_army_rally_point, true);
+            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_army_rally_pos, true);
             break;
         }
     }
@@ -248,6 +252,7 @@ void BetaStar::OnUnitDestroyed(const Unit *unit)
                     std::cout << "Enemy start location guessed: (" << closest_enemy_start_location.x << "," << closest_enemy_start_location.y << ")" << std::endl;
                     m_enemy_base_pos = closest_enemy_start_location;
                     m_enemy_base_quadrant = GetQuadrantByPoint(m_enemy_base_pos);
+                    m_forward_pylon_pos = RotatePosition(m_forward_pylon_pos, m_enemy_base_quadrant);
                     m_enemy_base_scouted = true;
                 }
             }

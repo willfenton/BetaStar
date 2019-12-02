@@ -131,10 +131,10 @@ void BetaStar::BaseDefenseMacro(const Units units)
     for (const auto& unit : units) {
         float distance_from_base = DistanceSquared2D(unit->pos, m_starting_pos);
         if (!m_attacking && distance_from_base > 2500) {
-            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_army_rally_point);
+            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_army_rally_pos);
         }
         else if (unit->orders.size() == 0 && distance_from_base >= 500 && distance_from_base <= 2500) {
-            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_army_rally_point);
+            Actions()->UnitCommand(unit, ABILITY_ID::MOVE, m_army_rally_pos);
         }
     }
 }

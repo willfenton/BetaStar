@@ -106,16 +106,7 @@ bool BetaStar::TrainUnit(const Unit *building, UnitTypeID unitType)
     // building at a warpgate instead of a gateway (warp close to warpgate)
     if (unitBuilder == UNIT_TYPEID::PROTOSS_GATEWAY && building->unit_type == UNIT_TYPEID::PROTOSS_WARPGATE)
     {
-        // if we're attacking, warp as close to the enemy as possible
-        if (m_attacking)
-        {
-            return WarpUnit(building, m_enemy_base_pos, unitType);
-        }
-        // if we're building up forces, stick near production building
-        else
-        {
-            return WarpUnit(building, building->pos, unitType);
-        }
+        return WarpUnit(building, GetUnitsCentroid(FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_STALKER)), unitType);
     }
     // normal training process
     else if (unitBuilder == building->unit_type)
@@ -496,7 +487,7 @@ bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearP
     // if we don't have a builder selected, get the closest worker
     if (builder == nullptr)
     {
-        GetClosestUnit(buildPos, allBuilders);
+        builder = GetClosestUnit(buildPos, allBuilders);
     }
 
     // We have everything we need to attempt construction
@@ -1109,15 +1100,21 @@ bool BetaStar::AlmostEqual(Point2D lhs, Point2D rhs, Point2D threshold)
 // The return value has been made to be a range so that we can vary priority values within the range if we like
 
 double BetaStar::GetUnitAttackPriority(const Unit* unit, Point2D army_centroid) {
+    double distance_weight = 2;
+    double health_weight = 50;
+
     double distance_to_army = DistanceSquared2D(unit->pos, army_centroid);
-    double distance_weight = 0.1;
+    double health_term = pow(1 - ((unit->health + unit->shield) / (unit->health_max + unit->shield_max)), 2) * health_weight;
+
+    // TODO: don't factor in distance if the're in range
+
     switch (enemy_race) {
     case Race::Protoss:
-        return GetProtossUnitAttackPriority(unit) - (distance_to_army * distance_weight);
+        return GetProtossUnitAttackPriority(unit) - (distance_to_army * distance_weight) + health_term;
     case Race::Terran:
-        return GetTerranUnitAttackPriority(unit) - (distance_to_army * distance_weight);
+        return GetTerranUnitAttackPriority(unit) - (distance_to_army * distance_weight) + health_term;
     case Race::Zerg:
-        return GetZergUnitAttackPriority(unit) - (distance_to_army * distance_weight);
+        return GetZergUnitAttackPriority(unit) - (distance_to_army * distance_weight) + health_term;
     case Race::Random:
         std::cout << "Enemy Race not yet detected";
         return -1;
@@ -1207,6 +1204,9 @@ double BetaStar::GetZergUnitAttackPriority(const Unit* unit) {
         case UNIT_TYPEID::ZERG_INFESTOR:
         case UNIT_TYPEID::ZERG_LURKERMP:
             return 300;
+        case UNIT_TYPEID::ZERG_QUEEN:
+        case UNIT_TYPEID::ZERG_RAVAGER:
+            return 225;
         // default units with weapons will be 199
         case UNIT_TYPEID::ZERG_HATCHERY:
         case UNIT_TYPEID::ZERG_LAIR:
