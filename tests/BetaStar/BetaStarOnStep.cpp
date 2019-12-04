@@ -32,7 +32,7 @@ void BetaStar::OnStepTrainWorkers()
         return;
     }
 
-    int sum_ideal_harvesters = 1;                              // ideal # of workers (starting value is # of extra workers)
+    int sum_ideal_harvesters = 3;                              // ideal # of workers (starting value is # of extra workers)
     int total_workers = (int)CountUnitType(m_worker_typeid);   // total # of workers (including those in training)
 
     const Units bases = FriendlyUnitsOfType(m_base_typeid);
@@ -809,7 +809,7 @@ void BetaStar::OnStepChronoBoost()
     // minimum energy required to chrono boost
     float minEnergy = 50.0f;
     // minimum energy we want to have before spending on certain chrono boosting
-    float minEnegyModerate = 25.0f;
+    float minEnegyModerate = 50.0f;
     // minimum energy we want to have before spending some on non-essential chrono boosting
     float minEnergyStingy = 100.0f;
 
@@ -842,7 +842,7 @@ void BetaStar::OnStepChronoBoost()
     for (const Unit *unit : allBuildings)
     {
         // save some time since we'll never beat this priority
-        if (bestCandidatePriority == 3)
+        if (bestCandidatePriority == 4)
         {
             break;
         }
@@ -852,6 +852,27 @@ void BetaStar::OnStepChronoBoost()
         {
             for (UnitOrder order : unit->orders)
             {
+                // Blink gets special highest priority
+                if (bestCandidatePriority < 4 && maxEnergy >= minEnergy && order.ability_id == ABILITY_ID::RESEARCH_BLINK)
+                {
+                    // calculate how much research time this building still has to work through
+                    float totalRemainingTime = 0.0f;
+                    for (UpgradeData ud : all_upgrades)
+                    {
+                        if (ud.ability_id == order.ability_id)
+                        {
+                            totalRemainingTime += ud.research_time * order.progress;
+                        }
+                    }
+                    // if we will fully utilize the chrono boost, apply it
+                    if (totalRemainingTime >= chronoBoostPseudoTime)
+                    {
+                        bestChronoCandidate = unit;
+                        bestCandidatePriority = 4;
+                        break;
+                    }
+                }
+
                 // buildings with research queues
                 if (bestCandidatePriority < 3 && maxEnergy >= minEnergy)
                 {
