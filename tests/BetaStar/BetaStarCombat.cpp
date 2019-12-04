@@ -373,7 +373,7 @@ void BetaStar::StalkerBlinkMicro()
                     // min blink is just in weapons range
                     float minDist = crowDist - (weaponDist + targetSize);
                     // max blink still leaves some room between stalkers and the unit
-                    float maxDist = crowDist - ((weaponDist / 2) + targetSize);
+                    float maxDist = crowDist - ((weaponDist / 2.0f) + targetSize);
                     modifiedBlinkDist = minDist + abs(GetRandomScalar() * (maxDist - minDist));
                 }
 

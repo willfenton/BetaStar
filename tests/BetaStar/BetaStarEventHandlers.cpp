@@ -8,6 +8,8 @@ void BetaStar::OnStep() {
     const ObservationInterface* observation = Observation();
     const GameInfo game_info = observation->GetGameInfo();
 
+    uint32_t currentLoop = observation->GetGameLoop();
+
     //std::cout << Observation()->GetGameLoop() << std::endl;
 
     //OnStepComputeStatistics();
@@ -20,12 +22,6 @@ void BetaStar::OnStep() {
         }
     }
 
-    //OnStepTrainWorkers();
-
-    if (m_first_pylon_built) {
-        OnStepTrainWorkers();
-    }
-
     // for finding positions of points
     //for (const auto& pylon : FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_PYLON)) {
     //    std::cout << "(" << pylon->pos.x << "," << pylon->pos.y << ")" << std::endl;
@@ -34,24 +30,35 @@ void BetaStar::OnStep() {
     //    std::cout << std::endl;
     //}
 
-    OnStepBuildPylons();
-
     //OnStepBuildGas();
 
     //OnStepExpand();
 
-    OnStepManageWorkers();
+    // Group functions into different steps (that never overlap) using modulus division
+    if (m_first_pylon_built && currentLoop % 4 == 0) {
+        OnStepTrainWorkers();
+    }
 
-    OnStepBuildArmy();
+    if (currentLoop % 4 == 0)
+        OnStepBuildPylons();
 
-    OnStepBuildOrder();
+    if (currentLoop % 4 == 0)
+        OnStepManageWorkers();
 
-    OnStepManageArmy();
+    if (currentLoop % 4 == 1)
+        OnStepBuildArmy();
 
-    OnStepResearchUpgrades();
+    if (currentLoop % 4 == 1)
+        OnStepBuildOrder();
 
-    // do this at the end so that it can properly boost new production
-    OnStepChronoBoost();
+    if (currentLoop % 4 == 1)
+        OnStepResearchUpgrades();
+
+    if (currentLoop % 4 == 2)
+        OnStepChronoBoost();
+
+    if (currentLoop % 4 == 3)
+        OnStepManageArmy();
 }
 
 void BetaStar::OnGameStart()

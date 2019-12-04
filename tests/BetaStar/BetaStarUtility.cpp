@@ -1173,6 +1173,8 @@ double BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
         case UNIT_TYPEID::PROTOSS_DARKTEMPLAR:
         case UNIT_TYPEID::PROTOSS_WARPPRISM:
         case UNIT_TYPEID::PROTOSS_MOTHERSHIP:
+            return 500;
+        case UNIT_TYPEID::PROTOSS_DARKSHRINE:
             return 400;
         case UNIT_TYPEID::PROTOSS_DISRUPTOR:
         case UNIT_TYPEID::PROTOSS_HIGHTEMPLAR:

@@ -32,7 +32,7 @@ void BetaStar::OnStepTrainWorkers()
         return;
     }
 
-    int sum_ideal_harvesters = 3;                              // ideal # of workers (starting value is # of extra workers)
+    int sum_ideal_harvesters = 1;                              // ideal # of workers (starting value is # of extra workers)
     int total_workers = (int)CountUnitType(m_worker_typeid);   // total # of workers (including those in training)
 
     const Units bases = FriendlyUnitsOfType(m_base_typeid);
@@ -725,9 +725,28 @@ void BetaStar::OnStepManageArmy()
     switch (m_current_strategy)
     {
         case Strategy::Blink_Stalker_Rush:
-            if (!m_attacking && m_blink_researched && Observation()->GetArmyCount() >= 12) {
-                m_attacking = true;
-                std::cout << GetGameTime() << " Rush" << std::endl;
+            if (!m_attacking && Observation()->GetArmyCount() >= 8) {
+
+                // See how far along blink research is
+                Units twilightCouncils = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL);
+                float blinkResearchProgress = 0.0f;
+                for (const Unit *twilightCountil : twilightCouncils)
+                {
+                    for (UnitOrder order : twilightCountil->orders)
+                    {
+                        if (order.ability_id == ABILITY_ID::RESEARCH_BLINK)
+                        {
+                            blinkResearchProgress = order.progress;
+                            break;
+                        }
+                    }
+                }
+
+                if (m_blink_researched || (m_blink_researching && blinkResearchProgress > 0.75f))
+                {
+                    m_attacking = true;
+                    std::cout << GetGameTime() << " Rush" << std::endl;
+                }
             }
             break;
         default:
