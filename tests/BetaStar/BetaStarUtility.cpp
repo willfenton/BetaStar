@@ -3,143 +3,6 @@
 using namespace sc2;
 
 
-// return the number of friendly units of type unit_type
-const size_t BetaStar::CountUnitType(UnitTypeID unit_type) const {
-    return FriendlyUnitsOfType(unit_type).size();
-}
-
-// returns false if all bases and vespene buildings are worker capped, else true
-bool BetaStar::NeedWorkers() {
-    int num_workers = 0;
-    int ideal_workers = 0;
-
-    for (const auto& base : FriendlyUnitsOfType(m_base_typeid)) {
-        num_workers += base->assigned_harvesters;
-        ideal_workers += base->ideal_harvesters;
-    }
-    for (const auto& vg : FriendlyUnitsOfType(m_gas_building_typeid)) {
-        num_workers += vg->assigned_harvesters;
-        ideal_workers += vg->ideal_harvesters;
-    }
-
-    //std::cout << num_workers << " " << ideal_workers << std::endl;
-
-    return (num_workers < ideal_workers);
-}
-
-// COULD USE SOME WORK
-// try to build a structure
-// returns true if successful, else false
-bool BetaStar::TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type)
-{
-    const ObservationInterface* observation = Observation();
-
-    // If a unit already is building a supply structure of this type, do nothing.
-    // Also get an scv to build the structure.
-    const Unit* unit_to_build = nullptr;
-    Units units = observation->GetUnits(Unit::Alliance::Self);
-    for (const auto& unit : units) {
-        for (const auto& order : unit->orders) {
-            if (order.ability_id == ability_type_for_structure) {
-                return false;
-            }
-        }
-
-        if (unit->unit_type == unit_type) {
-            unit_to_build = unit;
-        }
-    }
-
-    float rx = GetRandomScalar();
-    float ry = GetRandomScalar();
-
-    Actions()->UnitCommand(unit_to_build, ability_type_for_structure, sc2::Point2D(unit_to_build->pos.x + rx * 15.0f, unit_to_build->pos.y + ry * 15.0f));
-
-    return true;
-}
-
-// MOSTLY COPIED
-//Try to build a structure based on tag, Used mostly for Vespene, since the pathing check will fail even though the geyser is "Pathable"
-bool BetaStar::TryBuildStructure(AbilityID ability_type_for_structure, UnitTypeID unit_type, Tag location_tag) {
-
-    const ObservationInterface* observation = Observation();
-
-    Units workers = observation->GetUnits(Unit::Alliance::Self, IsUnit(unit_type));
-    const Unit* target = observation->GetUnit(location_tag);
-
-    if (workers.empty()) {
-        return false;
-    }
-
-    // Check to see if there is already a worker heading out to build it
-    for (const auto& worker : workers) {
-        for (const auto& order : worker->orders) {
-            if (order.ability_id == ability_type_for_structure) {
-                return false;
-            }
-        }
-    }
-
-    // If no worker is already building one, get a random worker to build one
-    const Unit* unit = GetRandomEntry(workers);
-
-    // Check to see if unit can build there
-    if (Query()->Placement(ability_type_for_structure, target->pos)) {
-        Actions()->UnitCommand(unit, ability_type_for_structure, target);
-        return true;
-    }
-    return false;
-}
-
-bool BetaStar::TryBuildSupplyDepot() {
-    // If we still have enough supply, don't build a supply depot.
-    if (std::max(0, Observation()->GetFoodCap() - Observation()->GetFoodUsed()) > 3) {
-        return false;
-    }
-
-    // Try and build a depot. Find a random SCV and give it the order.
-    return TryBuildStructure(m_supply_building_abilityid, m_worker_typeid);
-}
-
-// build refineries at our bases if we haven't yet
-void BetaStar::BuildGas() {
-    if (CountUnitType(m_supply_building_typeid) < 1) {
-        return;
-    }
-
-    for (const auto& cc : FriendlyUnitsOfType(m_base_typeid)) {
-        TryBuildGas(cc->pos);
-    }
-}
-
-// MOSTLY COPIED
-// Tries to build a geyser for a base
-bool BetaStar::TryBuildGas(Point2D base_location) {
-
-    const ObservationInterface* observation = Observation();
-
-    Units geysers = observation->GetUnits(Unit::Alliance::Neutral, IsUnit(UNIT_TYPEID::NEUTRAL_VESPENEGEYSER));
-
-    //only search within this radius
-    float minimum_distance = 225.0f;
-    Tag closestGeyser = 0;
-    for (const auto& geyser : geysers) {
-        float current_distance = DistanceSquared2D(base_location, geyser->pos);
-        if (current_distance < minimum_distance) {
-            if (Query()->Placement(m_gas_building_abilityid, geyser->pos)) {
-                minimum_distance = current_distance;
-                closestGeyser = geyser->tag;
-            }
-        }
-    }
-
-    // In the case where there are no more available geysers nearby
-    if (closestGeyser == 0) {
-        return false;
-    }
-    return TryBuildStructure(m_gas_building_abilityid, m_worker_typeid, closestGeyser);
-}
-
 // returns the nearest neutral unit of type target_unit_type
 // if there is none, returns nullptr
 const Unit* BetaStar::FindNearestNeutralUnit(const Point2D& start, UnitTypeID target_unit_type) {
@@ -182,161 +45,780 @@ const Unit* BetaStar::FindResourceToGather(Point2D unit_pos) {
     return FindNearestNeutralUnit(unit_pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
 }
 
-// MOSTLY COPIED
-// To ensure that we do not over or under saturate any base.
-void BetaStar::ManageWorkers(UnitTypeID worker_type, AbilityID worker_gather_command, UnitTypeID vespene_building_type) {
-    const ObservationInterface* observation = Observation();
-    Units bases = observation->GetUnits(Unit::Alliance::Self, IsUnit(m_base_typeid));
-    Units geysers = observation->GetUnits(Unit::Alliance::Self, IsUnit(vespene_building_type));
+bool BetaStar::TrainUnit(UnitTypeID unitType)
+{
+    const UnitTypeID unitBuilder = GetUnitBuilder(unitType);
 
-    if (bases.empty()) {
-        return;
-    }
-
-    for (const auto& base : bases) {
-        //If we have already mined out or still building here skip the base.
-        if (base->ideal_harvesters == 0 || base->build_progress != 1) {
-            continue;
-        }
-        //if base is
-        if (base->assigned_harvesters > base->ideal_harvesters) {
-            Units workers = observation->GetUnits(Unit::Alliance::Self, IsUnit(worker_type));
-
-            for (const auto& worker : workers) {
-                if (!worker->orders.empty()) {
-                    if (worker->orders.front().target_unit_tag == base->tag) {
-                        //This should allow them to be picked up by mineidleworkers()
-                        MineIdleWorkers(worker, worker_gather_command, vespene_building_type);
-                        return;
-                    }
-                }
-            }
-        }
-    }
-    Units workers = observation->GetUnits(Unit::Alliance::Self, IsUnit(worker_type));
-    for (const auto& geyser : geysers) {
-        if (geyser->ideal_harvesters == 0 || geyser->build_progress != 1) {
-            continue;
-        }
-        if (geyser->assigned_harvesters > geyser->ideal_harvesters) {
-            for (const auto& worker : workers) {
-                if (!worker->orders.empty()) {
-                    if (worker->orders.front().target_unit_tag == geyser->tag) {
-                        //This should allow them to be picked up by mineidleworkers()
-                        MineIdleWorkers(worker, worker_gather_command, vespene_building_type);
-                        return;
-                    }
-                }
-            }
-        }
-        else if (geyser->assigned_harvesters < geyser->ideal_harvesters) {
-            for (const auto& worker : workers) {
-                if (!worker->orders.empty()) {
-                    //This should move a worker that isn't mining gas to gas
-                    const Unit* target = observation->GetUnit(worker->orders.front().target_unit_tag);
-                    if (target == nullptr) {
-                        continue;
-                    }
-                    if (target->unit_type != vespene_building_type) {
-                        //This should allow them to be picked up by mineidleworkers()
-                        MineIdleWorkers(worker, worker_gather_command, vespene_building_type);
-                        return;
-                    }
-                }
-            }
-        }
-    }
-}
-
-// MOSTLY COPIED
-// Mine the nearest mineral to Town hall.
-// If we don't do this, probes may mine from other patches if they stray too far from the base after building.
-void BetaStar::MineIdleWorkers(const Unit* worker, AbilityID worker_gather_command, UnitTypeID vespene_building_type) {
-    const ObservationInterface* observation = Observation();
-    Units bases = observation->GetUnits(Unit::Alliance::Self, IsUnit(m_base_typeid));
-    Units geysers = observation->GetUnits(Unit::Alliance::Self, IsUnit(vespene_building_type));
-
-    const Unit* valid_mineral_patch = nullptr;
-
-    if (bases.empty()) {
-        return;
-    }
-
-    //Search for a base that is missing workers.
-    for (const auto& base : bases) {
-        //If we have already mined out here skip the base.
-        if (base->ideal_harvesters == 0 || base->build_progress != 1) {
-            continue;
-        }
-        if (base->assigned_harvesters < base->ideal_harvesters) {
-            valid_mineral_patch = FindNearestNeutralUnit(base->pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
-            Actions()->UnitCommand(worker, worker_gather_command, valid_mineral_patch);
-            return;
+    // Only select unit production buildings that aren't doing anything right now
+    Units buildings = Observation()->GetUnits(Unit::Alliance::Self, BetterIsUnit(unitBuilder, HasNoOrders()));
+    // warpgates = gateways, so we can build at them too
+    if (unitBuilder == UNIT_TYPEID::PROTOSS_GATEWAY)
+    {
+        Units warpgates = Observation()->GetUnits(Unit::Alliance::Self, BetterIsUnit(UNIT_TYPEID::PROTOSS_WARPGATE, HasNoOrders()));
+        if (!warpgates.empty())
+        {
+            buildings.insert(buildings.end(), warpgates.begin(), warpgates.end());
         }
     }
 
-    for (const auto& geyser : geysers) {
-        if (geyser->assigned_harvesters < geyser->ideal_harvesters) {
-            Actions()->UnitCommand(worker, worker_gather_command, geyser);
-            return;
+    // can't build at buildings that aren't built yet
+    for (auto iter = buildings.begin(); iter != buildings.end(); )
+    {
+        if ((*iter)->build_progress < 1.0f)
+        {
+            iter = buildings.erase(iter);
+        }
+        else
+        {
+            ++iter;
         }
     }
 
-    if (!worker->orders.empty()) {
-        return;
-    }
-
-    //If all workers are spots are filled just go to any base.
-    const Unit* random_base = GetRandomEntry(bases);
-    valid_mineral_patch = FindNearestNeutralUnit(random_base->pos, UNIT_TYPEID::NEUTRAL_MINERALFIELD);
-    Actions()->UnitCommand(worker, worker_gather_command, valid_mineral_patch);
-}
-
-// MOSTLY COPIED
-// CURRENTLY BROKEN
-// Expands to nearest location
-bool BetaStar::TryExpand(AbilityID build_ability, UnitTypeID worker_type) {
-    const ObservationInterface* observation = Observation();
-
-    if (m_building_nexus || observation->GetMinerals() < 450 || NeedWorkers()) {
+    // we don't have any building that can build this unit
+    if (buildings.size() == 0)
+    {
         return false;
     }
 
-    float minimum_distance = std::numeric_limits<float>::max();
-    Point3D closest_expansion;
-    for (const auto& expansion : search::CalculateExpansionLocations(Observation(), Query())) {
-        float current_distance = Distance2D(m_starting_pos, expansion);
-        if (current_distance < .01f) {
-            continue;
-        }
+    // get random building from vector and build unit there
+    return TrainUnit(GetRandomEntry(buildings), unitType);
+}
 
-        if (current_distance < minimum_distance) {
-            if (Query()->Placement(build_ability, expansion)) {
-                closest_expansion = expansion;
-                minimum_distance = current_distance;
+bool BetaStar::TrainUnit(const Unit *building, UnitTypeID unitType)
+{
+    // note that all TrainUnit variants resolve themselves here, so this is where we can do all of our
+    // checks and handle edge-cases
+
+    // if a building isn't finished, it can't build units
+    if (building->build_progress < 1.0f)
+    {
+        return false;
+    }
+
+    // only the nexus can build units without power
+    if (building->unit_type != UNIT_TYPEID::PROTOSS_NEXUS && !building->is_powered)
+    {
+        return false;
+    }
+
+    UnitTypeID unitBuilder = GetUnitBuilder(unitType);
+
+    // building at a warpgate instead of a gateway (warp close to warpgate)
+    if (unitBuilder == UNIT_TYPEID::PROTOSS_GATEWAY && building->unit_type == UNIT_TYPEID::PROTOSS_WARPGATE)
+    {
+        if (!m_attacking)
+        {
+            return WarpUnit(building, m_starting_pos, unitType);
+        }
+        else
+        {
+            Units friendlyArmy = GetFriendlyArmyUnits();
+            if (friendlyArmy.empty())
+            {
+                return WarpUnit(building, m_starting_pos, unitType);
+            }
+            else
+            {
+                if (m_attacking)
+                {
+                    return WarpUnit(building, GetUnitsCentroidNearPoint(friendlyArmy, 0.25f, m_enemy_base_pos), unitType);
+                }
+                else
+                {
+                    return WarpUnit(building, GetUnitsCentroid(friendlyArmy), unitType);
+                }
             }
         }
     }
-
-    const Unit* unit_to_build = nullptr;
-    Units units = observation->GetUnits(Unit::Alliance::Self);
-    for (const auto& unit : units) {
-        for (const auto& order : unit->orders) {
-            if (order.ability_id == build_ability) {
+    // normal training process
+    else if (unitBuilder == building->unit_type)
+    {
+        AbilityID buildAbility = GetUnitBuildAbility(unitType);
+        for (UnitOrder order : building->orders)
+        {
+            // if we have this unit queued to build already, don't queue another one
+            if (order.ability_id == buildAbility)
+            {
                 return false;
             }
         }
 
-        if (unit->unit_type == worker_type) {
-            unit_to_build = unit;
+        // Return true if training succeeds, false otherwise
+        return TryIssueCommand(building, buildAbility);
+    }
+
+    // couldn't build that unit at that building - should probably never reach this exit point
+    return false;
+}
+
+bool BetaStar::WarpUnit(Point2D warpLocation, UnitTypeID unitType)
+{
+    Units warpgates = FriendlyUnitsOfType(UNIT_TYPEID::PROTOSS_WARPGATE);
+
+    // we don't have any warpgates
+    if (warpgates.size() == 0)
+    {
+        return false;
+    }
+
+    // get random warpgate and warp unit in with that warpgate
+    return WarpUnit(GetRandomEntry(warpgates), warpLocation, unitType);
+}
+
+bool BetaStar::WarpUnit(const Unit *building, Point2D warpLocation, UnitTypeID unitType)
+{
+    // if a building isn't finished, it can't build units
+    if (building->build_progress < 1.0f)
+    {
+        return false;
+    }
+
+    // if our warpgate isn't powered, it can't build units
+    if (!building->is_powered)
+    {
+        return false;
+    }
+
+    const ObservationInterface* observation = Observation();
+    const GameInfo gameInfo = observation->GetGameInfo();
+
+    std::vector<PowerSource> powerSources = observation->GetPowerSources();
+
+    if (powerSources.empty())
+    {
+        return false;
+    }
+
+    // find the closest power source to the specified point to warp in around
+    size_t minIndex = 0;
+    float minDist = DistanceSquared2D(warpLocation, powerSources[0].position);
+    for (size_t i = 1; i < powerSources.size(); ++i)
+    {
+        float testDist = DistanceSquared2D(warpLocation, powerSources[i].position);
+        if (testDist < minDist)
+        {
+            minDist = testDist;
+            minIndex = i;
         }
     }
 
-    m_building_nexus = true;
+    const PowerSource &targetPowerSource = powerSources[minIndex];
+    float randomX = GetRandomScalar();
+    float randomY = GetRandomScalar();
+    Point2D finalWarpPoint = Point2D(targetPowerSource.position.x + randomX * targetPowerSource.radius, targetPowerSource.position.y + randomY * targetPowerSource.radius);
 
-    Actions()->UnitCommand(unit_to_build, build_ability, closest_expansion);
+    // If the warp location is walled off, don't warp there.
+    // We check this to see if there is pathing from the build location to the center of the map
+    if (Query()->PathingDistance(finalWarpPoint, Point2D(gameInfo.playable_max.x / 2, gameInfo.playable_max.y / 2)) < .01f) {
+        return false;
+    }
 
-    return true;
+    // If this succeeds, return true. Otherwise, return false.
+    return TryIssueCommand(building, GetUnitWarpAbility(unitType), finalWarpPoint);
+}
+
+size_t BetaStar::MassTrainUnit(UnitTypeID unitType)
+{
+    UnitTypeID unitBuilder = GetUnitBuilder(unitType);
+
+    Units buildings = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(unitBuilder));
+    // warpgates = gateways, so build for them too
+    if (unitBuilder == UNIT_TYPEID::PROTOSS_GATEWAY)
+    {
+        Units warpgates = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(UNIT_TYPEID::PROTOSS_WARPGATE));
+        if (!warpgates.empty())
+        {
+            buildings.insert(buildings.end(), warpgates.begin(), warpgates.end());
+        }
+    }
+
+    size_t buildCount = 0;
+    for (const Unit* building : buildings)
+    {
+        if (TrainUnit(building, unitType))
+        {
+            ++buildCount;
+        }
+    }
+
+    return buildCount;
+}
+
+void BetaStar::TryBuildStructureNearPylon(AbilityID ability_type_for_structure, UnitTypeID unit_type) {
+    const ObservationInterface* observation = Observation();
+
+    std::vector<PowerSource> power_sources = observation->GetPowerSources();
+
+    if (power_sources.empty()) {
+        return;
+    }
+
+    int num_tries = 10;
+
+    for (int i = 0; i < num_tries; ++i) {
+        const PowerSource& random_power_source = GetRandomEntry(power_sources);
+        
+        if (observation->GetUnit(random_power_source.tag)->unit_type == UNIT_TYPEID::PROTOSS_WARPPRISM) {
+            continue;
+        }
+
+        float radius = random_power_source.radius;
+        float rx = GetRandomScalar();
+        float ry = GetRandomScalar();
+        Point2D build_location = Point2D(random_power_source.position.x + rx * radius, random_power_source.position.y + ry * radius);
+
+        if (Query()->Placement(ability_type_for_structure, build_location)) {
+            Units workers = FriendlyUnitsOfType(unit_type);
+            for (const auto& worker : workers) {
+                for (const auto& order : worker->orders) {
+                    if (order.ability_id == ability_type_for_structure) {
+                        return;
+                    }
+                }
+            }
+            const Unit* closest_worker = nullptr;
+            float closest_distance = std::numeric_limits<float>::max();
+            for (const auto& worker : workers) {
+                float distance = DistanceSquared2D(build_location, worker->pos);
+                if (distance < closest_distance) {
+                    closest_worker = worker;
+                    closest_distance = distance;
+                }
+            }
+            if (closest_worker == nullptr) {
+                return;
+            }
+
+            // try to build the structure in the valid build location
+            if (TryIssueCommand(closest_worker, ability_type_for_structure, build_location)) {
+                // Build valid, add info
+                //bool seen = false;
+                //for (const auto& building : m_buildings) {
+                //    if (build_location == position) {
+                //        seen = true; // Don't add to vector
+                //    }
+                //}
+                //if (!seen) {
+                m_buildings.push_back(std::make_tuple(build_location, ability_type_for_structure));
+                //}
+            }
+
+            // if we get here, we either succeeded or can't succeed. Exit.
+            return;
+        }
+    }
+}
+
+bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, const Unit *builder)
+{
+    const ObservationInterface *observation = Observation();
+
+    AbilityID buildAbility = GetUnitBuildAbility(buildingType);
+
+    Units allBuilders = FriendlyUnitsOfType(m_worker_typeid);
+
+    // We don't have any workers. GG.
+    if (allBuilders.empty())
+    {
+        return false;
+    }
+
+    // Don't try to build another building until the current one is finished
+    for (const Unit *unit : allBuilders)
+    {
+        for (UnitOrder order : unit->orders)
+        {
+            if (order.ability_id == buildAbility)
+            {
+                return false;
+            }
+        }
+    }
+
+    // Get all power sources (radius property differs from Unit radius property for pylons)
+    std::vector<PowerSource> powerSources = observation->GetPowerSources();
+
+    // Clean out Warp Prisms since we only want to build by pylons
+    for (auto iter = powerSources.begin(); iter != powerSources.end(); )
+    {
+        UnitTypeID testType = observation->GetUnit(iter->tag)->unit_type;
+        if (testType == UNIT_TYPEID::PROTOSS_WARPPRISM || testType == UNIT_TYPEID::PROTOSS_WARPPRISMPHASING)
+        {
+            iter = powerSources.erase(iter);
+        }
+        else
+        {
+            ++iter;
+        }
+    }
+
+    // no pylons on the map. GG.
+    if (powerSources.empty())
+    {
+        return false;
+    }
+
+    const PowerSource &chosenPylon = GetRandomEntry(powerSources);
+
+    Point2D buildPos = Point2D(chosenPylon.position.x + GetRandomScalar()*chosenPylon.radius, chosenPylon.position.y + GetRandomScalar()*chosenPylon.radius);
+
+    // if we don't have a builder selected, get the closest worker
+    if (builder == nullptr)
+    {
+        GetClosestUnit(buildPos, allBuilders);
+    }
+
+    // We have everything we need to attempt construction
+    return TryBuildStructure(buildingType, buildPos, builder);
+}
+
+bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, const Unit *builder)
+{
+    const ObservationInterface *observation = Observation();
+
+    AbilityID buildAbility = GetUnitBuildAbility(buildingType);
+
+    Units allBuilders = FriendlyUnitsOfType(m_worker_typeid);
+
+    // We don't have any workers. GG.
+    if (allBuilders.empty())
+    {
+        return false;
+    }
+
+    // Don't try to build another building until the current one is finished
+    for (const Unit *unit : allBuilders)
+    {
+        for (UnitOrder order : unit->orders)
+        {
+            if (order.ability_id == buildAbility)
+            {
+                return false;
+            }
+        }
+    }
+
+    // Get all power sources (radius property differs from Unit radius property for pylons)
+    std::vector<PowerSource> powerSources = observation->GetPowerSources();
+
+    // Clean out Warp Prisms since we only want to build by pylons
+    for (auto iter = powerSources.begin(); iter != powerSources.end(); )
+    {
+        UnitTypeID testType = observation->GetUnit(iter->tag)->unit_type;
+        if (testType == UNIT_TYPEID::PROTOSS_WARPPRISM || testType == UNIT_TYPEID::PROTOSS_WARPPRISMPHASING)
+        {
+            iter = powerSources.erase(iter);
+        }
+        else
+        {
+            ++iter;
+        }
+    }
+
+    // no pylons on the map. GG.
+    if (powerSources.empty())
+    {
+        return false;
+    }
+
+    size_t minIndex = 0;
+    float minDistSqrd = DistanceSquared2D(powerSources[minIndex].position, nearPosition);
+    for (size_t index = 1; index < powerSources.size(); ++index)
+    {
+        float testDistSqrd = DistanceSquared2D(powerSources[index].position, nearPosition);
+        if (testDistSqrd < minDistSqrd)
+        {
+            minIndex = index;
+            minDistSqrd = testDistSqrd;
+        }
+    }
+
+    const PowerSource &chosenPylon = powerSources[minIndex];
+
+    Point2D buildPos = Point2D(chosenPylon.position.x + GetRandomScalar()*chosenPylon.radius, chosenPylon.position.y + GetRandomScalar()*chosenPylon.radius);
+
+    // if we don't have a builder selected, get the closest worker
+    if (builder == nullptr)
+    {
+        GetClosestUnit(buildPos, allBuilders);
+    }
+
+    // We have everything we need to attempt construction
+    return TryBuildStructure(buildingType, buildPos, builder);
+}
+
+bool BetaStar::TryBuildStructureNearPylon(UnitTypeID buildingType, Point2D nearPosition, float maxRadius, const Unit *builder)
+{
+    const ObservationInterface *observation = Observation();
+
+    AbilityID buildAbility = GetUnitBuildAbility(buildingType);
+
+    Units allBuilders = FriendlyUnitsOfType(m_worker_typeid);
+
+    // We don't have any workers. GG.
+    if (allBuilders.empty())
+    {
+        return false;
+    }
+
+    // Don't try to build another building until the current one is finished
+    for (const Unit *unit : allBuilders)
+    {
+        for (UnitOrder order : unit->orders)
+        {
+            if (order.ability_id == buildAbility)
+            {
+                return false;
+            }
+        }
+    }
+
+    // Get all power sources (radius property differs from Unit radius property for pylons)
+    std::vector<PowerSource> powerSources = observation->GetPowerSources();
+
+    float radiusSqrd = maxRadius * maxRadius;
+    // Clean out Warp Prisms since we only want to build by pylons
+    // Also clean out pylons not within the specified radius
+    for (auto iter = powerSources.begin(); iter != powerSources.end(); )
+    {
+        UnitTypeID testType = observation->GetUnit(iter->tag)->unit_type;
+        if (testType == UNIT_TYPEID::PROTOSS_WARPPRISM || testType == UNIT_TYPEID::PROTOSS_WARPPRISMPHASING)
+        {
+            iter = powerSources.erase(iter);
+        }
+        else if (DistanceSquared2D(iter->position, nearPosition) > radiusSqrd)
+        {
+            iter = powerSources.erase(iter);
+        }
+        else
+        {
+            ++iter;
+        }
+    }
+
+    // no valid pylons
+    if (powerSources.empty())
+    {
+        return false;
+    }
+
+    const PowerSource &chosenPylon = GetRandomEntry(powerSources);
+
+    Point2D buildPos = Point2D(chosenPylon.position.x + GetRandomScalar()*chosenPylon.radius, chosenPylon.position.y + GetRandomScalar()*chosenPylon.radius);
+
+    // if we don't have a builder selected, get the closest worker
+    if (builder == nullptr)
+    {
+        builder = GetClosestUnit(buildPos, allBuilders);
+    }
+
+    // We have everything we need to attempt construction
+    return TryBuildStructure(buildingType, buildPos, builder);
+}
+
+bool BetaStar::TryBuildStructure(UnitTypeID buildingType, Point2D buildPos, const Unit *builder)
+{
+    AbilityID buildAbility = GetUnitBuildAbility(buildingType);
+
+    // Test building placement at that location to make sure nothing is in the way
+    if (Query()->Placement(buildAbility, buildPos))
+    {
+        // The builder can't build there if they can't get there
+        if (!AlmostEqual(Query()->PathingDistance(builder, buildPos), 0.0f))
+        {
+            // try to build the structure in the valid build location
+            if (TryIssueCommand(builder, buildAbility, buildPos))
+            {
+                // Pylons are managed in a different place
+                if (buildingType != m_supply_building_typeid)
+                {
+                    m_buildings.push_back(std::make_tuple(buildPos, buildAbility));
+                }
+                return true;
+            }
+        }
+    }
+
+    // Couldn't build
+    return false;
+}
+
+void BetaStar::TryResearchUpgrade(AbilityID upgrade_abilityid, UnitTypeID building_type)
+{
+    const ObservationInterface* observation = Observation();
+
+    Units buildings = FriendlyUnitsOfType(building_type);
+
+    // check whether the upgrade is already being researched
+    for (const auto& building : buildings) {
+        if (building->build_progress != 1) {
+            continue;
+        }
+        for (const auto& order : building->orders) {
+            if (order.ability_id == upgrade_abilityid) {
+                return;
+            }
+        }
+    }
+
+    // look for unoccupied building, research upgrade
+    for (const auto& building : buildings) {
+        if (building->build_progress != 1) {
+            continue;
+        }
+        if (building->orders.size() == 0) {
+            // if we're successful in researching the upgrade, exit
+            if (TryIssueCommand(building, upgrade_abilityid))
+            {
+                return;
+            }
+        }
+    }
+}
+
+void BetaStar::ClearArmyRatios()
+{
+    army_ratios.clear();
+}
+
+size_t BetaStar::CountUnitType(UnitTypeID unitType, bool includeIncomplete)
+{
+    const ObservationInterface *observation = Observation();
+
+    const Units allUnits = observation->GetUnits(Unit::Alliance::Self, IsUnit(unitType));
+
+    size_t count = 0;
+
+    // count structures differently than units
+    if (IsStructure(unitType))
+    {
+        // buildings under construction will be included in allUnits
+        if (includeIncomplete)
+        {
+            count = allUnits.size();
+        }
+        // only count buildings that are fully constructed
+        else
+        {
+            for (const Unit *building : allUnits)
+            {
+                if (building->build_progress == 1.0f)
+                {
+                    ++count;
+                }
+            }
+        }
+    }
+    else
+    {
+        count = allUnits.size();
+        // units in the queue are not included in allUnits
+        if (includeIncomplete)
+        {
+            const Units trainingUnits = observation->GetUnits(Unit::Alliance::Self, IsUnit(GetUnitBuilder(unitType)));
+            for (const Unit *trainer : trainingUnits)
+            {
+                AbilityID buildAbility = GetUnitBuildAbility(unitType);
+                for (UnitOrder order : trainer->orders)
+                {
+                    if (order.ability_id == buildAbility)
+                    {
+                        ++count;
+                    }
+                }
+            }
+        }
+    }
+
+    return count;
+}
+
+void BetaStar::SetStrategy(Strategy newStrategy)
+{
+    m_current_strategy = newStrategy;
+    // Set all ratios to 0. No new units will be built automatically.
+    ClearArmyRatios();
+
+    // Set new army ratios based on the strategy (can be fine-tuned elsewhere)
+    switch (newStrategy)
+    {
+        case Strategy::Blink_Stalker_Rush:
+            army_ratios[UNIT_TYPEID::PROTOSS_STALKER] = 1.0f;
+            break;
+        default:
+            army_ratios[UNIT_TYPEID::PROTOSS_STALKER] = 1.0f;
+            break;
+    }
+}
+
+bool BetaStar::TryIssueCommand(const Unit *unit, AbilityID ability)
+{
+    // Generic catch for when we can't use this ability (i.e. can't afford it, don't have the upgrades, on cooldown, etc.)
+    AvailableAbilities abilities = Query()->GetAbilitiesForUnit(unit);
+    for (const auto &tempAbility : abilities.abilities)
+    {
+        if (tempAbility.ability_id == ability)
+        {
+            Actions()->UnitCommand(unit, ability);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool BetaStar::TryIssueCommand(const Unit *unit, AbilityID ability, const Unit *target)
+{
+    // Generic catch for when we can't use this ability (i.e. can't afford it, don't have the upgrades, on cooldown, etc.)
+    AvailableAbilities abilities = Query()->GetAbilitiesForUnit(unit);
+    for (const auto &tempAbility : abilities.abilities)
+    {
+        if (tempAbility.ability_id == ability)
+        {
+            Actions()->UnitCommand(unit, ability, target);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool BetaStar::TryIssueCommand(const Unit *unit, AbilityID ability, Point2D point)
+{
+    // Generic catch for when we can't use this ability (i.e. can't afford it, don't have the upgrades, on cooldown, etc.)
+    AvailableAbilities abilities = Query()->GetAbilitiesForUnit(unit);
+    for (const auto &tempAbility : abilities.abilities)
+    {
+        if (tempAbility.ability_id == ability)
+        {
+            Actions()->UnitCommand(unit, ability, point);
+            return true;
+        }
+    }
+    return false;
+}
+
+const Unit* BetaStar::GetClosestUnit(Point2D position, const Units units)
+{
+    // empty collections of units should never be passed
+    if (units.empty())
+    {
+        return nullptr;
+    }
+
+    size_t minIndex = 0;
+    float minDist = DistanceSquared2D(position, units[minIndex]->pos);
+
+    for (size_t i = 1; i < units.size(); ++i)
+    {
+        float testDist = DistanceSquared2D(position, units[i]->pos);
+        if (testDist < minDist)
+        {
+            minDist = testDist;
+            minIndex = i;
+        }
+    }
+
+    return units[minIndex];
+}
+
+Point2D BetaStar::GetUnitsCentroid(const Units units)
+{
+    if (units.empty())
+    {
+        return Point2D(96, 96);
+    }
+
+    Point2D centroid(0, 0);
+    for (const Unit *unit : units)
+    {
+        centroid += unit->pos;
+    }
+
+    return centroid / (float)units.size();
+}
+
+Point2D BetaStar::GetUnitsCentroidNearPoint(Units units, float unitFrac, Point2D desiredTarget)
+{
+    // Can't work with 0 units
+    if (AlmostEqual(unitFrac, 0.0f) || units.empty())
+        return Point2D(96, 96);
+
+    std::sort(units.begin(), units.end(), IsCloser(desiredTarget));
+
+    int nUnits = (int)ceil(units.size() * unitFrac);
+
+    Point2D centroid(0.0f, 0.0f);
+    for (size_t i = 0; i < nUnits; ++i)
+    {
+        centroid += units[i]->pos;
+    }
+
+    return centroid / (float)nUnits;
+}
+
+float BetaStar::GetGameTime()
+{
+    return Observation()->GetGameLoop() / 22.4f;
+}
+
+int BetaStar::GetQuadrantByPoint(Point2D pos) {
+    if (pos.x < 96) {
+        if (pos.y < 96) {
+            return SW;
+        }
+        else {
+            return NW;
+        }
+    }
+    else {
+        if (pos.y < 96) {
+            return SE;
+        }
+        else {
+            return NE;
+        }
+    }
+}
+
+// assumes points are in the south-west quadrant (x < 96, y < 96)
+Point2D BetaStar::RotatePosition(Point2D pos, int new_quadrant) {
+    Point2D new_pos(pos);
+    new_pos.x = new_pos.x - 96;
+    new_pos.y = new_pos.y - 96;
+    switch (new_quadrant) {
+        case (SW): {
+            break;
+        }
+        case (NW): {
+            for (int i = 0; i < 1; i++) {
+                float x = new_pos.x;
+                float y = new_pos.y;
+                new_pos.x = y;
+                new_pos.y = x * -1;
+            }
+            break;
+        }
+        case (NE): {
+            for (int i = 0; i < 2; i++) {
+                float x = new_pos.x;
+                float y = new_pos.y;
+                new_pos.x = y;
+                new_pos.y = x * -1;
+            }
+            break;
+        }
+        case (SE): {
+            for (int i = 0; i < 3; i++) {
+                float x = new_pos.x;
+                float y = new_pos.y;
+                new_pos.x = y;
+                new_pos.y = x * -1;
+            }
+            break;
+        }
+    }
+    new_pos.x = new_pos.x + 96;
+    new_pos.y = new_pos.y + 96;
+    return new_pos;
 }
 
 UnitTypeID BetaStar::GetUnitBuilder(UnitTypeID unitToBuild)
@@ -414,7 +896,7 @@ UnitTypeID BetaStar::GetUnitBuilder(UnitTypeID unitToBuild)
         case UNIT_TYPEID::PROTOSS_ZEALOT:
             return UNIT_TYPEID::PROTOSS_GATEWAY;
 
-        // Terran Units - no need to complete
+            // Terran Units - no need to complete
         case UNIT_TYPEID::TERRAN_BARRACKS:
             return UNIT_TYPEID::TERRAN_SCV;
         case UNIT_TYPEID::TERRAN_COMMANDCENTER:
@@ -424,7 +906,7 @@ UnitTypeID BetaStar::GetUnitBuilder(UnitTypeID unitToBuild)
         case UNIT_TYPEID::TERRAN_SCV:
             return UNIT_TYPEID::TERRAN_COMMANDCENTER;
 
-        // Should never be reached
+            // Should never be reached
         default:
             // Program broke because unit you asked for wasn't added to the switch case yet. Add it.
             std::cout << "ERROR: GetUnitBuilder could not find a builder for [" << unitToBuild.to_string() << "]. Add this to the switch case." << std::endl;
@@ -507,7 +989,7 @@ AbilityID BetaStar::GetUnitBuildAbility(UnitTypeID unitToBuild)
         case UNIT_TYPEID::PROTOSS_ZEALOT:
             return ABILITY_ID::TRAIN_ZEALOT;
 
-        // Terran Build Actions - no need to complete
+            // Terran Build Actions - no need to complete
         case UNIT_TYPEID::TERRAN_BARRACKS:
             return ABILITY_ID::BUILD_BARRACKS;
         case UNIT_TYPEID::TERRAN_COMMANDCENTER:
@@ -517,7 +999,7 @@ AbilityID BetaStar::GetUnitBuildAbility(UnitTypeID unitToBuild)
         case UNIT_TYPEID::TERRAN_SCV:
             return ABILITY_ID::TRAIN_SCV;
 
-        // Should never be reached
+            // Should never be reached
         default:
             // Program broke because unit you asked for wasn't added to the switch case yet. Add it.
             std::cout << "ERROR: GetUnitBuildAbility could not find a build command for [" << unitToBuild.to_string() << "]. Add this to the switch case." << std::endl;
@@ -525,68 +1007,308 @@ AbilityID BetaStar::GetUnitBuildAbility(UnitTypeID unitToBuild)
     }
 }
 
-bool BetaStar::TrainUnit(UnitTypeID unitType)
+AbilityID BetaStar::GetUnitWarpAbility(UnitTypeID unitToWarp)
 {
-    Units buildings = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(GetUnitBuilder(unitType)));
-
-    // we don't have any building that can build this unit
-    if (buildings.size() == 0)
+    switch (unitToWarp.ToType())
     {
-        return false;
+        case UNIT_TYPEID::PROTOSS_ZEALOT:
+            return ABILITY_ID::TRAINWARP_ZEALOT;
+        case UNIT_TYPEID::PROTOSS_SENTRY:
+            return ABILITY_ID::TRAINWARP_SENTRY;
+        case UNIT_TYPEID::PROTOSS_STALKER:
+            return ABILITY_ID::TRAINWARP_STALKER;
+        case UNIT_TYPEID::PROTOSS_ADEPT:
+            return ABILITY_ID::TRAINWARP_ADEPT;
+        case UNIT_TYPEID::PROTOSS_HIGHTEMPLAR:
+            return ABILITY_ID::TRAINWARP_HIGHTEMPLAR;
+        case UNIT_TYPEID::PROTOSS_DARKTEMPLAR:
+            return ABILITY_ID::TRAINWARP_DARKTEMPLAR;
+            // unit cannot be warped
+        default:
+            return ABILITY_ID::INVALID;
     }
-
-    // get random building from vector (slight bias to lower indeces) and build unit there
-    Actions()->UnitCommand(buildings[rand() % buildings.size()], GetUnitBuildAbility(unitType));
-
-    return true;
 }
 
-bool BetaStar::TrainUnit(const Unit *building, UnitTypeID unitType)
+bool BetaStar::IsStructure(UnitTypeID unitType)
 {
-    // We've asked a building that can't build something to build it. Exit.
-    if (GetUnitBuilder(unitType) != building->unit_type)
+    switch (unitType.ToType())
     {
-        return false;
+        case UNIT_TYPEID::PROTOSS_ASSIMILATOR:
+        case UNIT_TYPEID::PROTOSS_CYBERNETICSCORE:
+        case UNIT_TYPEID::PROTOSS_DARKSHRINE:
+        case UNIT_TYPEID::PROTOSS_FLEETBEACON:
+        case UNIT_TYPEID::PROTOSS_FORGE:
+        case UNIT_TYPEID::PROTOSS_GATEWAY:
+        case UNIT_TYPEID::PROTOSS_NEXUS:
+        case UNIT_TYPEID::PROTOSS_PHOTONCANNON:
+        case UNIT_TYPEID::PROTOSS_PYLON:
+        case UNIT_TYPEID::PROTOSS_PYLONOVERCHARGED:
+        case UNIT_TYPEID::PROTOSS_ROBOTICSBAY:
+        case UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY:
+        case UNIT_TYPEID::PROTOSS_STARGATE:
+        case UNIT_TYPEID::PROTOSS_TEMPLARARCHIVE:
+        case UNIT_TYPEID::PROTOSS_TWILIGHTCOUNCIL:
+        case UNIT_TYPEID::PROTOSS_WARPGATE:
+        case UNIT_TYPEID::TERRAN_ARMORY:
+        case UNIT_TYPEID::TERRAN_AUTOTURRET:
+        case UNIT_TYPEID::TERRAN_BARRACKS:
+        case UNIT_TYPEID::TERRAN_BARRACKSFLYING:
+        case UNIT_TYPEID::TERRAN_BARRACKSREACTOR:
+        case UNIT_TYPEID::TERRAN_BARRACKSTECHLAB:
+        case UNIT_TYPEID::TERRAN_BUNKER:
+        case UNIT_TYPEID::TERRAN_COMMANDCENTER:
+        case UNIT_TYPEID::TERRAN_COMMANDCENTERFLYING:
+        case UNIT_TYPEID::TERRAN_ENGINEERINGBAY:
+        case UNIT_TYPEID::TERRAN_FACTORY:
+        case UNIT_TYPEID::TERRAN_FACTORYFLYING:
+        case UNIT_TYPEID::TERRAN_FACTORYREACTOR:
+        case UNIT_TYPEID::TERRAN_FACTORYTECHLAB:
+        case UNIT_TYPEID::TERRAN_FUSIONCORE:
+        case UNIT_TYPEID::TERRAN_GHOSTACADEMY:
+        case UNIT_TYPEID::TERRAN_MISSILETURRET:
+        case UNIT_TYPEID::TERRAN_ORBITALCOMMAND:
+        case UNIT_TYPEID::TERRAN_ORBITALCOMMANDFLYING:
+        case UNIT_TYPEID::TERRAN_PLANETARYFORTRESS:
+        case UNIT_TYPEID::TERRAN_POINTDEFENSEDRONE:
+        case UNIT_TYPEID::TERRAN_REACTOR:
+        case UNIT_TYPEID::TERRAN_REFINERY:
+        case UNIT_TYPEID::TERRAN_SENSORTOWER:
+        case UNIT_TYPEID::TERRAN_STARPORT:
+        case UNIT_TYPEID::TERRAN_STARPORTFLYING:
+        case UNIT_TYPEID::TERRAN_STARPORTREACTOR:
+        case UNIT_TYPEID::TERRAN_STARPORTTECHLAB:
+        case UNIT_TYPEID::TERRAN_SUPPLYDEPOT:
+        case UNIT_TYPEID::TERRAN_SUPPLYDEPOTLOWERED:
+        case UNIT_TYPEID::TERRAN_TECHLAB:
+        case UNIT_TYPEID::ZERG_BANELINGNEST:
+        case UNIT_TYPEID::ZERG_CREEPTUMOR:
+        case UNIT_TYPEID::ZERG_CREEPTUMORBURROWED:
+        case UNIT_TYPEID::ZERG_CREEPTUMORQUEEN:
+        case UNIT_TYPEID::ZERG_EVOLUTIONCHAMBER:
+        case UNIT_TYPEID::ZERG_EXTRACTOR:
+        case UNIT_TYPEID::ZERG_GREATERSPIRE:
+        case UNIT_TYPEID::ZERG_HATCHERY:
+        case UNIT_TYPEID::ZERG_HIVE:
+        case UNIT_TYPEID::ZERG_HYDRALISKDEN:
+        case UNIT_TYPEID::ZERG_INFESTATIONPIT:
+        case UNIT_TYPEID::ZERG_LAIR:
+        case UNIT_TYPEID::ZERG_NYDUSCANAL:
+        case UNIT_TYPEID::ZERG_NYDUSNETWORK:
+        case UNIT_TYPEID::ZERG_ROACHWARREN:
+        case UNIT_TYPEID::ZERG_SPAWNINGPOOL:
+        case UNIT_TYPEID::ZERG_SPIRE:
+        case UNIT_TYPEID::ZERG_SPINECRAWLER:
+        case UNIT_TYPEID::ZERG_SPINECRAWLERUPROOTED:
+        case UNIT_TYPEID::ZERG_SPORECRAWLER:
+        case UNIT_TYPEID::ZERG_SPORECRAWLERUPROOTED:
+        case UNIT_TYPEID::ZERG_ULTRALISKCAVERN:
+            return true;
+        default:
+            return false;
     }
-
-    // May need to queue some commands? 
-    Actions()->UnitCommand(building, GetUnitBuildAbility(unitType));
-
-    return true;
 }
 
-size_t BetaStar::TrainUnitMultiple(UnitTypeID unitType)
+bool BetaStar::AlmostEqual(float lhs, float rhs, float threshold)
 {
-    Units buildings = Observation()->GetUnits(Unit::Alliance::Self, IsUnit(GetUnitBuilder(unitType)));
-
-    // May need to queue some commands? 
-    Actions()->UnitCommand(buildings, GetUnitBuildAbility(unitType));
-
-    return buildings.size();
+    return abs(lhs - rhs) <= threshold;
 }
 
-size_t BetaStar::TrainUnitMultiple(const Units &buildings, UnitTypeID unitType)
+bool BetaStar::AlmostEqual(Point2D lhs, Point2D rhs, Point2D threshold)
 {
-    for (const Unit* building : buildings)
-    {
-        // We've asked a building that can't build something to build it. Exit.
-        // Possible case of non-homogenous selection of buildings
-        if (GetUnitBuilder(unitType) != building->unit_type)
-        {
+    Point2D diff = lhs - rhs;
+    return abs(diff.x) <= threshold.x && abs(diff.y) <= threshold.y;
+}
+
+//Returns an double, higher for higher priority units
+double BetaStar::GetUnitAttackPriority(const Unit* unit, Point2D army_centroid) {
+    double targeting_value = 0.0;
+
+    // add a penalty to the targeting value based on distance to our army
+    double distance_weight = -3.0;
+    double no_penalty_range = 5.0;
+    double distance_to_army = Distance2D(unit->pos, army_centroid);
+    double distance_term = pow(std::max(0.0, distance_to_army - no_penalty_range), 2);
+    targeting_value += distance_term * distance_weight;
+
+    // add a bonus to the targeting value if the unit is low on health / shields
+    double health_weight = 50.0;
+    double unit_health_percent = ((unit->health + unit->shield) / (unit->health_max + unit->shield_max));
+    double health_term = pow(1 - unit_health_percent, 2);
+    targeting_value += health_term * health_weight;
+
+    // add a bonus to the targeting value based on the unit type
+    // Between 0 and 100 for structural units
+    // Between 100 and 200 for low priority units
+    // Between 200 and 300 for medium priority units
+    // Between 300 and 400 for high priority units
+    double priority_weight = 1.0;
+    double priority_value = std::numeric_limits<double>::min();
+    switch (enemy_race) {
+    case Race::Protoss:
+        priority_value = GetProtossUnitAttackPriority(unit);
+        break;
+    case Race::Terran:
+        priority_value = GetTerranUnitAttackPriority(unit);
+        break;
+    case Race::Zerg:
+        priority_value = GetZergUnitAttackPriority(unit);
+        break;
+    case Race::Random:
+        std::cout << "Enemy Race not yet detected. Using fallbacks.";
+        priority_value = GenericPriorityFallbacks(unit);
+        break;
+    default:
+        std::cout << "Should not be reached";
+        return std::numeric_limits<double>::min();
+    }
+    targeting_value += priority_value * priority_weight;
+
+    // return the final targeting value
+    return targeting_value;
+}
+
+double BetaStar::GetProtossUnitAttackPriority(const Unit* unit)  {
+    // Order in descending priority, except for the default case
+    switch ((unit->unit_type).ToType()) {
+        case UNIT_TYPEID::PROTOSS_DARKTEMPLAR:
+        case UNIT_TYPEID::PROTOSS_WARPPRISM:
+        case UNIT_TYPEID::PROTOSS_MOTHERSHIP:
+            return 500;
+        case UNIT_TYPEID::PROTOSS_DARKSHRINE:
+            return 400;
+        case UNIT_TYPEID::PROTOSS_DISRUPTOR:
+        case UNIT_TYPEID::PROTOSS_HIGHTEMPLAR:
+        case UNIT_TYPEID::PROTOSS_SENTRY:
+            return 300;
+        case UNIT_TYPEID::PROTOSS_PHOTONCANNON:
+            return unit->is_powered ? 300 : 3;
+        case UNIT_TYPEID::PROTOSS_IMMORTAL:
+            return 225;
+        // default units with weapons will be 199
+        case UNIT_TYPEID::PROTOSS_OBSERVER:
+            return AlmostEqual(army_ratios[UNIT_TYPEID::PROTOSS_DARKTEMPLAR], 0.0f) ? 0 : 150;
+        case UNIT_TYPEID::PROTOSS_PYLON:
+            return 125;
+        case UNIT_TYPEID::PROTOSS_NEXUS:
+            return 115;
+        case UNIT_TYPEID::PROTOSS_PROBE:
+            return 110;
+        case UNIT_TYPEID::PROTOSS_GATEWAY:
+        case UNIT_TYPEID::PROTOSS_WARPGATE:
+        case UNIT_TYPEID::PROTOSS_STARGATE:
+        case UNIT_TYPEID::PROTOSS_ROBOTICSFACILITY:
+            return unit->is_powered ? 100 : 2;
+        // default units without weapons will be 99
+
+        // default buildings without weapons will be 1
+        default:
+            return GenericPriorityFallbacks(unit);
+    }
+}
+
+double BetaStar::GetTerranUnitAttackPriority(const Unit* unit) {
+    // Order in descending priority, except for the default case
+    switch ((unit->unit_type).ToType()) {
+        case UNIT_TYPEID::TERRAN_SIEGETANK:
+            return 1000;
+        case UNIT_TYPEID::TERRAN_GHOST:
+            return 400;
+        case UNIT_TYPEID::TERRAN_BATTLECRUISER:
+            return 300;
+        case UNIT_TYPEID::TERRAN_MEDIVAC:
+        case UNIT_TYPEID::TERRAN_PLANETARYFORTRESS:
+            return 200;
+        // default units with weapons will be 199
+        case UNIT_TYPEID::TERRAN_MARINE:
+        case UNIT_TYPEID::TERRAN_REAPER:
+            return 150;
+        case UNIT_TYPEID::TERRAN_SCV:
+            return 125;
+        case UNIT_TYPEID::TERRAN_COMMANDCENTER:
+        case UNIT_TYPEID::TERRAN_COMMANDCENTERFLYING:
+        case UNIT_TYPEID::TERRAN_ORBITALCOMMAND:
+        case UNIT_TYPEID::TERRAN_ORBITALCOMMANDFLYING:
+            return 125;
+        case UNIT_TYPEID::TERRAN_FACTORY:
+        case UNIT_TYPEID::TERRAN_BARRACKS:
+        case UNIT_TYPEID::TERRAN_STARPORT:
+            return 100;
+        // default units without weapons will be 99
+        // default buildings without weapons will be 1
+        default:
+            return GenericPriorityFallbacks(unit);
+    }
+}
+
+double BetaStar::GetZergUnitAttackPriority(const Unit* unit) {
+    // Order in descending priority, except for the default case
+    switch ((unit->unit_type).ToType()) {
+        case UNIT_TYPEID::ZERG_BROODLORD:
+        case UNIT_TYPEID::ZERG_ULTRALISK:
+            return 400;
+        case UNIT_TYPEID::ZERG_VIPER:
+        case UNIT_TYPEID::ZERG_SWARMHOSTMP:
+        case UNIT_TYPEID::ZERG_INFESTOR:
+        case UNIT_TYPEID::ZERG_LURKERMP:
+            return 300;
+        case UNIT_TYPEID::ZERG_QUEEN:
+        case UNIT_TYPEID::ZERG_RAVAGER:
+            return 225;
+        // default units with weapons will be 199
+        case UNIT_TYPEID::ZERG_HATCHERY:
+        case UNIT_TYPEID::ZERG_LAIR:
+        case UNIT_TYPEID::ZERG_HIVE:
+            return 100;
+        // default units without weapons will be 99
+        case UNIT_TYPEID::ZERG_DRONE:
+            return 75;
+        case UNIT_TYPEID::ZERG_OVERSEER:
+        case UNIT_TYPEID::ZERG_OVERLORD:
+            return 50;
+        // default buildings without weapons will be 1
+        case UNIT_TYPEID::ZERG_LARVA:
+        case UNIT_TYPEID::ZERG_BROODLORDCOCOON:
+        case UNIT_TYPEID::ZERG_RAVAGERCOCOON:
+        case UNIT_TYPEID::ZERG_OVERLORDCOCOON:
+        case UNIT_TYPEID::ZERG_TRANSPORTOVERLORDCOCOON:
+        case UNIT_TYPEID::ZERG_EGG:
             return 0;
-        }
+        default:
+            return GenericPriorityFallbacks(unit);
     }
-
-    // May need to queue some commands? 
-    Actions()->UnitCommand(buildings, GetUnitBuildAbility(unitType));
-
-    return buildings.size();
 }
 
-void BetaStar::TrainWorkers() {
-    for (const auto& base : FriendlyUnitsOfType(m_base_typeid)) {
-        if (Observation()->GetMinerals() >= 50 && base->orders.size() == 0 && std::max(0, Observation()->GetFoodCap() - Observation()->GetFoodUsed()) != 0 && NeedWorkers()) {
-            Actions()->UnitCommand(base, m_worker_train_abilityid);
+double BetaStar::GenericPriorityFallbacks(const Unit* unit)
+{
+    // Units with weapons are more dangerous
+    if (all_unit_type_data[unit->unit_type].weapons.size() > 0)
+    {
+        return 199;
+    }
+    // Of the units that can't attack, structures are lowest priority (leave room for 0 priority units)
+    else
+    {
+        return IsStructure(unit->unit_type) ? 1 : 99;
+    }
+}
+
+bool BetaStar::CanAttackAirUnits(const Unit* unit) {
+    for (Weapon w : all_unit_type_data[unit->unit_type].weapons) {
+        if (w.type == Weapon::TargetType::Air || w.type == Weapon::TargetType::Any) {
+            return true;
         }
     }
+    return false;
+}
+
+Units BetaStar::GetFriendlyArmyUnits()
+{
+    const ObservationInterface *observation = Observation();
+    Units army = observation->GetUnits(Unit::Alliance::Self, BetterIsUnit(managed_unit_types[0]));
+    for (size_t i = 1; i < managed_unit_types.size(); ++i)
+    {
+        Units moreUnits = observation->GetUnits(Unit::Alliance::Self, BetterIsUnit(managed_unit_types[i]));
+        army.insert(army.begin(), moreUnits.begin(), moreUnits.end());
+    }
+    return army;
 }

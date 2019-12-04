@@ -2,6 +2,30 @@
 
 using namespace sc2;
 
+#include <iostream>
+#include "sc2api/sc2_api.h"
+#include "sc2api/sc2_args.h"
+#include "sc2lib/sc2_lib.h"
+#include "sc2utils/sc2_manage_process.h"
+#include "sc2utils/sc2_arg_parser.h"
+
+class HumanBot : public sc2::Agent {
+public:
+    virtual void OnGameStart() final {
+        const sc2::ObservationInterface* observation = Observation();
+        std::cout << "I am player number " << observation->GetPlayerID() << std::endl;
+    };
+
+    virtual void OnStep() final {
+    };
+
+    virtual void OnBuildingConstructionComplete(const Unit* unit)
+    {
+        std::cout << UnitTypeToName(unit->unit_type) << " built by HOOMAN at: (" << unit->pos.x << "," << unit->pos.y << ")" << std::endl;
+    }
+
+private:
+};
 
 static Difficulty GetDifficultyFromString(const std::string &InDifficulty)
 {
@@ -82,6 +106,7 @@ struct ConnectionOptions
 	bool ComputerOpponent;
 	Difficulty ComputerDifficulty;
 	Race ComputerRace;
+    Race HumanRace;
 	std::string OpponentId;
 };
 
@@ -94,6 +119,7 @@ static void ParseArguments(int argc, char *argv[], ConnectionOptions &connect_op
 		{ "-l", "--LadderServer", "Ladder server address", false },
 		{ "-c", "--ComputerOpponent", "If we set up a computer oppenent" },
 		{ "-a", "--ComputerRace", "Race of computer oppent"},
+        { "-hr", "--HumanRace", "Race of human opponent"},
 		{ "-d", "--ComputerDifficulty", "Difficulty of computer oppenent"},
 		{ "-x", "--OpponentId", "PlayerId of opponent"}
 		});
@@ -126,6 +152,15 @@ static void ParseArguments(int argc, char *argv[], ConnectionOptions &connect_op
 	else
 	{
 		connect_options.ComputerOpponent = false;
+        std::string HumanRace;
+        if (arg_parser.Get("HumanRace", HumanRace))
+        {
+            connect_options.HumanRace = GetRaceFromString(HumanRace);
+        }
+        else
+        {
+            connect_options.HumanRace = Race::Random;
+        }
 	}
 	arg_parser.Get("OpponentId", connect_options.OpponentId);
 }
@@ -143,6 +178,7 @@ static void RunBot(int argc, char *argv[], Agent *Agent, Race race)
 	if (Options.ComputerOpponent)
 	{
 		num_agents = 1;
+        coordinator.SetRealtime(false);
 		coordinator.SetParticipants({
 			CreateParticipant(race, Agent),
 			CreateComputer(Options.ComputerRace, Options.ComputerDifficulty)
@@ -151,8 +187,10 @@ static void RunBot(int argc, char *argv[], Agent *Agent, Race race)
 	else
 	{
 		num_agents = 2;
-		coordinator.SetParticipants({
-			CreateParticipant(race, Agent),
+        coordinator.SetRealtime(true);
+        coordinator.SetParticipants({
+            CreateParticipant(Options.HumanRace, new HumanBot()),
+            CreateParticipant(race, Agent)
 			});
 	}
 
@@ -174,3 +212,4 @@ static void RunBot(int argc, char *argv[], Agent *Agent, Race race)
 	while (coordinator.Update()) {
 	}
 }
+
